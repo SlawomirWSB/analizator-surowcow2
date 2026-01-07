@@ -6,13 +6,15 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(layout="wide", page_title="XTB TERMINAL V34", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Ukrycie domyślnych elementów Streamlit
+# Ukrycie zbędnych elementów interfejsu
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
     header { visibility: hidden; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    /* Usunięcie marginesów dla komponentów html */
+    iframe { display: block; margin: 0 auto; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,19 +45,13 @@ DB = {
 }
 
 def main():
-    # --- SIDEBAR: SEKCJA ZAROBKOWA ---
+    # --- SIDEBAR: TYLKO REKOMENDACJA I WSPARCIE ---
     with st.sidebar:
-        st.title("💰 STREFA TRADERA")
+        st.title("💰 TERMINAL TRADERA")
         
         # Sekcja Afiliacyjna
         st.info("### 🚀 REKOMENDACJA\nHandluj na XTB bez prowizji! Załóż konto z linku poniżej:")
         st.markdown("[👉 Otwórz Darmowe Konto](https://www.twoj-link-afiliacyjny.pl)")
-        
-        st.markdown("---")
-        
-        # Sekcja Usług / Premium
-        st.success("### 💎 PREMIUM\nChcesz otrzymywać moje analizy na Telegramie?")
-        st.markdown("[Dołącz do Grupy](https://t.me/twoja_grupa)")
         
         st.markdown("---")
         
@@ -75,13 +71,13 @@ def main():
 
     symbol = DB[rynek][inst]
 
-    # Widget Analizy (Zegar)
+    # --- WIDGET ANALIZY (Zwiększona wysokość, by nie zasłaniać liczb) ---
     tech_code = f"""
     <div style="display: flex; justify-content: center; background: #131722; padding: 10px; border-radius: 10px;">
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
       {{
       "interval": "{itv}m" if "{itv}".isdigit() else "1D",
-      "width": "100%", "height": 380,
+      "width": "100%", "height": 450,
       "isTransparent": true, "symbol": "{symbol}",
       "showIntervalTabs": false, "displayMode": "single",
       "locale": "pl", "colorTheme": "dark"
@@ -89,9 +85,10 @@ def main():
       </script>
     </div>
     """
-    components.html(tech_code, height=390)
+    # Zwiększyliśmy height z 390 na 470, aby zmieściły się liczby pod zegarem
+    components.html(tech_code, height=470)
 
-    # Wykres Główny
+    # --- WYKRES GŁÓWNY ---
     chart_code = f"""
     <div id="tv_chart_main" style="height: 600px;"></div>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -104,7 +101,6 @@ def main():
       "theme": "dark",
       "style": "1",
       "locale": "pl",
-      "toolbar_bg": "#f1f3f6",
       "enable_publishing": false,
       "hide_side_toolbar": false,
       "allow_symbol_change": true,
@@ -118,16 +114,11 @@ def main():
     """
     components.html(chart_code, height=620)
 
-    # Ostrzeżenie prawne (Wymagane!)
+    # Stopka
     st.markdown("---")
-    st.markdown("""
-        <p style='text-align: center; color: gray; font-size: 0.8rem;'>
-        <b>OSTRZEŻENIE O RYZYKU:</b> Kontrakty CFD są złożonymi instrumentami i wiążą się z wysokim ryzykiem szybkiej utraty pieniędzy z powodu dźwigni finansowej. 
-        Prezentowane narzędzie ma charakter wyłącznie informacyjny i edukacyjny. Nie stanowi porady inwestycyjnej.
-        </p>
-    """, unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray; font-size: 0.8rem;'>OSTRZEŻENIE O RYZYKU: Kontrakty CFD wiążą się z wysokim ryzykiem utraty kapitału.</p>", unsafe_allow_html=True)
 
-    # Obsługa Audio (Uproszczona)
+    # Obsługa Audio
     if audio:
         audio_js = """
         <script>
