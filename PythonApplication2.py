@@ -6,7 +6,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(layout="wide", page_title="XTB TERMINAL V34 PRO", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Stylizacja: Ukrywanie menu Streamlit i zaokrąglanie ramek widgetów
+# Stylizacja: Ukrywanie menu Streamlit i estetyka ramek
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
@@ -43,11 +43,11 @@ DB = {
 }
 
 def main():
-    # --- SIDEBAR (Strefa Reklamowa) ---
+    # --- SIDEBAR (Bez Telegrama, z Rekomendacją i Wsparciem) ---
     with st.sidebar:
         st.title("💰 TERMINAL")
         st.info("### 🚀 REKOMENDACJA\nHandluj na XTB bez prowizji! Załóż konto z linku poniżej:")
-        # TUTAJ wkleisz swój link, gdy go dostaniesz:
+        # Tu wkleisz swój link afiliacyjny
         st.markdown("[👉 Otwórz Darmowe Konto](https://www.xtb.com/pl)") 
         st.markdown("---")
         st.warning("### ☕ WSPARCIE\nPodoba Ci się terminal? Postaw mi kawę!")
@@ -59,7 +59,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Terminal Analityczny", "📅 Kalendarz Ekonomiczny", "🗺️ Mapa Rynku"])
 
     with tab1:
-        # Panel Wyboru Instrumentu
+        # Panel Wyboru
         c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
         with c1: rynek = st.selectbox("Rynek:", list(DB.keys()), index=0)
         with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()), index=0)
@@ -68,14 +68,14 @@ def main():
 
         symbol = DB[rynek][inst]
 
-        # --- DWA RÓŻNE WIDGETY ANALIZY OBOK SIEBIE ---
+        # --- DWA RÓŻNE WIDŻETY ANALIZY OBOK SIEBIE ---
         st.subheader("🤖 Kompleksowa Analiza Techniczna")
         col_sig1, col_sig2 = st.columns(2)
 
         with col_sig1:
             st.markdown("<p style='text-align:center; color:#83888D;'>Werdykt (Zegar)</p>", unsafe_allow_html=True)
-            # Widget 1: Zegar (Single mode)
-            tech_code = f"""
+            # Widżet 1: Tryb pojedynczy (Zegar)
+            tech_code1 = f"""
             <div style="height: 450px;">
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
               {{
@@ -88,12 +88,12 @@ def main():
               </script>
             </div>
             """
-            components.html(tech_code, height=470)
+            components.html(tech_code1, height=480)
 
         with col_sig2:
             st.markdown("<p style='text-align:center; color:#83888D;'>Szczegóły (Tabela Wskaźników)</p>", unsafe_allow_html=True)
-            # Widget 2: Tabela (Multiple mode z zakładkami)
-            detailed_code = f"""
+            # Widżet 2: Tryb wielokrotny (Tabela) - upewnij się, że "displayMode" to "multiple"
+            tech_code2 = f"""
             <div style="height: 450px;">
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
               {{
@@ -106,9 +106,9 @@ def main():
               </script>
             </div>
             """
-            components.html(detailed_code, height=470)
+            components.html(tech_code2, height=480)
 
-        # Wykres Główny pod sygnałami
+        # Wykres Główny
         st.markdown("---")
         chart_code = f"""
         <div id="tv_chart_main" style="height: 600px;"></div>
@@ -127,7 +127,7 @@ def main():
         components.html(chart_code, height=620)
 
     with tab2:
-        st.subheader("📅 Kalendarz Wydarzeń Makro")
+        st.subheader("📅 Kalendarz Wydarzeń")
         cal_code = """
         <div style="height: 800px;">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
@@ -149,11 +149,11 @@ def main():
         """
         components.html(heatmap_code, height=620)
 
-    # Stopka z wymaganym prawem ostrzeżeniem
+    # Stopka
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: gray; font-size: 0.8rem;'>OSTRZEŻENIE O RYZYKU: Kontrakty CFD wiążą się z wysokim ryzykiem utraty kapitału. Narzędzie ma charakter edukacyjny.</p>", unsafe_allow_html=True)
+    st.caption("🚨 Kontrakty CFD wiążą się z wysokim ryzykiem utraty kapitału. Narzędzie ma charakter edukacyjny.")
 
-    # Logika Alertu Dźwiękowego
+    # Logika Audio
     if audio:
         audio_js = """
         <script>
