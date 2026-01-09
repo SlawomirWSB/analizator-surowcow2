@@ -6,18 +6,17 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(layout="wide", page_title="XTB TERMINAL V34 PRO", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Stylizacja: Ukrywanie menu Streamlit, zaokrąglanie ramek i kolory
+# Stylizacja: Ukrywanie menu Streamlit i estetyka ramek
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
     header { visibility: hidden; }
     footer { visibility: hidden; }
     iframe { border-radius: 12px; background: #131722; border: 1px solid #2a2e39; }
-    .stSelectbox label { color: #83888D !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Instrumentów (Mapowanie nazw na symbole TradingView)
+# 2. Baza Instrumentów
 DB = {
     "SUROWCE": {
         "GOLD (Złoto)": "OANDA:XAUUSD",
@@ -44,48 +43,44 @@ DB = {
 }
 
 def main():
-    # --- SIDEBAR (Panel boczny) ---
+    # --- SIDEBAR ---
     with st.sidebar:
         st.title("💰 TERMINAL")
-        st.info("### 🚀 REKOMENDACJA\nHandluj na XTB bez prowizji! Załóż konto z linku poniżej:")
+        st.info("### 🚀 REKOMENDACJA\nHandluj na XTB bez prowizji!")
         st.markdown("[👉 Otwórz Darmowe Konto](https://www.xtb.com/pl)") 
         st.markdown("---")
-        
-        st.success("### 💎 PREMIUM\nChcesz otrzymywać moje analizy na Telegramie?")
+        st.success("### 💎 PREMIUM\nAnalizy na Telegramie:")
         st.markdown("[Dołącz do Grupy](https://t.me/twoj_link)")
         st.markdown("---")
-        
-        st.warning("### ☕ WSPARCIE\nPomogłem? Możesz postawić mi symboliczną kawę!")
-        st.markdown("[Postaw kawę (BuyCoffee)](https://buycoffee.to/twoj_nick)")
-        st.markdown("---")
-        st.caption("Wersja: V34 PRO | Dane: Multi-Source")
+        st.warning("### ☕ WSPARCIE")
+        st.markdown("[Postaw kawę](https://buycoffee.to/twoj_nick)")
+        st.caption("Wersja: V34 PRO | Dual-Signal System")
 
-    # --- MENU GŁÓWNE (ZAKŁADKI) ---
+    # --- MENU GŁÓWNE ---
     tab1, tab2, tab3 = st.tabs(["📊 Terminal Analityczny", "📅 Kalendarz Ekonomiczny", "🗺️ Mapa Rynku"])
 
     with tab1:
-        # Panel Wyboru Instrumentu
+        # Panel Wyboru
         c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
         with c1: rynek = st.selectbox("Rynek:", list(DB.keys()), index=0)
         with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()), index=0)
         with c3: itv = st.selectbox("Interwał:", ["1", "5", "15", "60", "D"], index=1)
         with c4: audio = st.checkbox("Dźwięk", value=True)
 
-        # Pobranie aktywnego symbolu
         selected_symbol = DB[rynek][inst]
+        tv_interval = f"{itv}" if itv != "D" else "1D"
 
-        # --- SEKCJA ANALIZY ---
-        st.subheader("🤖 Analiza Wielu Źródeł")
+        st.subheader(f"🤖 Strategia Dual-Signal: {inst}")
         col_sig1, col_sig2 = st.columns(2)
 
         with col_sig1:
-            st.markdown("<p style='text-align:center; color:#83888D;'>Źródło 1: TradingView (Analiza Techniczna)</p>", unsafe_allow_html=True)
-            # Widżet Zegara - Dynamicznie reaguje na wybrany symbol
-            tech_tv = f"""
+            st.markdown("<p style='text-align:center; color:#FF4B4B;'>Sygnał 1: Agregat Techniczny (Zegar)</p>", unsafe_allow_html=True)
+            # Widżet 1: Zegar (Werdykt)
+            tech_tv1 = f"""
             <div style="height: 450px;">
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
               {{
-              "interval": "{itv}m" if "{itv}".isdigit() else "1D",
+              "interval": "{tv_interval if tv_interval == '1D' else tv_interval+'m'}",
               "width": "100%", "height": 450,
               "isTransparent": true, 
               "symbol": "{selected_symbol}",
@@ -95,18 +90,29 @@ def main():
               </script>
             </div>
             """
-            components.html(tech_tv, height=470)
+            components.html(tech_tv1, height=480)
 
         with col_sig2:
-            st.markdown("<p style='text-align:center; color:#83888D;'>Źródło 2: Investing.com (Kursy Live)</p>", unsafe_allow_html=True)
-            # Widżet Investing - Zmodyfikowany na stabilną listę kursów live
-            tech_inv = """
-            <iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,5,7,9,10" 
-            width="100%" height="450" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
+            st.markdown("<p style='text-align:center; color:#00FFA2;'>Sygnał 2: Analiza Wskaźników (Szczegóły)</p>", unsafe_allow_html=True)
+            # Widżet 2: Pełna lista techniczna (Inny widok analityczny)
+            # Używamy trybu "multiple", który wymusza tabelaryczne zestawienie RSI, MACD itd.
+            tech_tv2 = f"""
+            <div style="height: 450px;">
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+              {{
+              "interval": "{tv_interval if tv_interval == '1D' else tv_interval+'m'}",
+              "width": "100%", "height": 450,
+              "isTransparent": true, 
+              "symbol": "{selected_symbol}",
+              "showIntervalTabs": true, "displayMode": "multiple",
+              "locale": "pl", "colorTheme": "dark"
+            }}
+              </script>
+            </div>
             """
-            components.html(tech_inv, height=470)
+            components.html(tech_tv2, height=480)
 
-        # --- WYKRES GŁÓWNY ---
+        # Wykres Główny
         st.markdown("---")
         chart_code = f"""
         <div id="tv_chart_main" style="height: 600px;"></div>
@@ -116,42 +122,26 @@ def main():
           "autosize": true, 
           "symbol": "{selected_symbol}", 
           "interval": "{itv}",
-          "timezone": "Europe/Warsaw", "theme": "dark", "style": "1",
-          "locale": "pl", "enable_publishing": false,
-          "hide_side_toolbar": false, "allow_symbol_change": true,
-          "container_id": "tv_chart_main",
-          "studies": ["RSI@tv-basicstudies", "EMA@tv-basicstudies"]
+          "theme": "dark", "style": "1",
+          "locale": "pl", "container_id": "tv_chart_main",
+          "studies": ["RSI@tv-basicstudies", "MACD@tv-basicstudies"]
         }});
         </script>
         """
         components.html(chart_code, height=620)
 
+    # Tab 2 i Tab 3 (Działające i sprawdzone)
     with tab2:
-        st.subheader("📅 Kalendarz Wydarzeń Makro")
-        cal_code = """
-        <iframe src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&category=_unemployment,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100&importance=1,2,3&features=datepicker,timezone&countries=25,32,6,37,7,5,22,11,10,35,43,56,36&calType=day&timeZone=58&lang=51" 
-        width="100%" height="800" frameborder="0" allowtransparency="true"></iframe>
-        """
-        components.html(cal_code, height=820)
-
+        components.html('<iframe src="https://sslecal2.investing.com?importance=2,3&countries=25,32,6,37,7,5&calType=day&timeZone=58&lang=51" width="100%" height="800" frameborder="0"></iframe>', height=820)
     with tab3:
-        st.subheader("🗺️ Mapa Sentymentu Krypto")
-        heatmap_code = """
-        <iframe src="https://s.tradingview.com/embed-widget/crypto-mcap/?locale=pl#%7B%22colorTheme%22%3A%22dark%22%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22600%22%2C%22isTransparent%22%3Afalse%7D" 
-        width="100%" height="600" frameborder="0"></iframe>
-        """
-        components.html(heatmap_code, height=620)
+        components.html('<iframe src="https://s.tradingview.com/embed-widget/crypto-mcap/?locale=pl#%7B%22colorTheme%22%3A%22dark%22%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22600%22%7D" width="100%" height="600" frameborder="0"></iframe>', height=620)
 
-    # Ostrzeżenie o ryzyku
-    st.markdown("---")
-    st.markdown("<p style='text-align: center; color: gray; font-size: 0.8rem;'>OSTRZEŻENIE: Kontrakty CFD są złożonymi instrumentami i wiążą się z wysokim ryzykiem szybkiej utraty pieniędzy z powodu dźwigni finansowej.</p>", unsafe_allow_html=True)
-
-    # Logika Audio Alertów
+    # Logika Audio Alertu (pika, gdy pojawi się MOCNE KUPNO)
     if audio:
         audio_js = """
         <script>
         setInterval(() => {
-            if (document.body.innerText.includes('MOCNE KUP') || document.body.innerText.includes('MOCNE SPRZEDAJ')) {
+            if (document.body.innerText.includes('Mocne kup') || document.body.innerText.includes('Mocne sprzedaj')) {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 osc.connect(ctx.destination);
