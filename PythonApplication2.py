@@ -92,4 +92,21 @@ def main():
         current_rsi = DB[sel]["rsi"].get(selected_tf, "50.0")
         
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f
+        with c1: st.markdown(f'<div class="stat-box"><small>Investing ({selected_tf})</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["type"]}</b></div>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="stat-box"><small>TradingView ({selected_tf})</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["type"]}</b></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14) {sel}</small><br><b style="color:#3498db;">{current_rsi}</b></div>', unsafe_allow_html=True)
+
+        gauge_html = f"""
+        <div class="tradingview-widget-container">
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+          {{
+            "interval": "{selected_tf}", "width": "100%", "isTransparent": true, "height": 400,
+            "symbol": "{DB[sel]['sym']}", "showIntervalTabs": false, "displayMode": "multiple",
+            "locale": "pl", "colorTheme": "dark"
+          }}
+          </script>
+        </div>
+        """
+        components.html(gauge_html, height=420)
+
+if __name__ == "__main__": main()
