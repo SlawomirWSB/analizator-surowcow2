@@ -1,8 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
+from datetime import datetime
 
-# 1. Konfiguracja V88 - Ultra Mobile Sync
-st.set_page_config(layout="wide", page_title="HUB V88")
+# 1. Konfiguracja V89 - Full Date & Time Sync
+st.set_page_config(layout="wide", page_title="HUB V89")
 
 st.markdown("""
     <style>
@@ -10,15 +11,14 @@ st.markdown("""
     
     /* Minimalistyczny nagłówek dla mobile */
     .mobile-header {
-        font-size: 0.9rem !important;
+        font-size: 0.85rem !important;
         font-weight: bold;
         text-align: left;
         color: #63676a;
-        margin-top: -30px;
-        margin-bottom: 5px;
+        margin-top: -35px;
+        margin-bottom: 10px;
     }
     
-    /* Odstępy kontenera */
     .block-container { padding-top: 2rem !important; }
 
     /* Przyciski obok siebie */
@@ -61,8 +61,9 @@ st.markdown("""
     }
 
     .upd-time {
-        font-size: 0.7rem;
-        color: #63676a;
+        font-size: 0.65rem;
+        color: #888;
+        text-align: right;
     }
 
     .stat-box {
@@ -76,15 +77,16 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza danych z datami aktualizacji
+# 2. Baza danych z pełnymi datami
+# Uwaga: Daty są przykładowe, w systemie produkcyjnym pobierane z API
 DB = {
-    "GBP/CHF": {"in": "1.073", "tp": "1.071", "sl": "1.075", "sym": "FX:GBPCHF", "type": "SPRZEDAŻ", "color": "#ff4b4b", "upd": "12:20 | 1D", "rsi": "31.2"},
-    "GBP/AUD": {"in": "2.003", "tp": "2.007", "sl": "1.998", "sym": "FX:GBPAUD", "type": "KUPNO", "color": "#00ff88", "upd": "12:30 | 1D", "rsi": "54.8"},
-    "CAD/JPY": {"in": "113.85", "tp": "114.50", "sl": "113.30", "sym": "FX:CADJPY", "type": "KUPNO", "color": "#00ff88", "upd": "06:47 | 1D", "rsi": "61.3"}
+    "GBP/CHF": {"in": "1.073", "tp": "1.071", "sl": "1.075", "sym": "FX:GBPCHF", "type": "SPRZEDAŻ", "color": "#ff4b4b", "upd": "10.01.2026 | 12:20", "rsi": "31.2"},
+    "GBP/AUD": {"in": "2.003", "tp": "2.007", "sl": "1.998", "sym": "FX:GBPAUD", "type": "KUPNO", "color": "#00ff88", "upd": "10.01.2026 | 12:30", "rsi": "54.8"},
+    "CAD/JPY": {"in": "113.85", "tp": "114.50", "sl": "113.30", "sym": "FX:CADJPY", "type": "KUPNO", "color": "#00ff88", "upd": "10.01.2026 | 06:47", "rsi": "61.3"}
 }
 
 def main():
-    st.markdown('<div class="mobile-header">V88 SYNC</div>', unsafe_allow_html=True)
+    st.markdown('<div class="mobile-header">V89 DATA & SYNC</div>', unsafe_allow_html=True)
     
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
     
@@ -92,7 +94,7 @@ def main():
     
     with col_l:
         for pair, d in DB.items():
-            # Nagłówek karty z datą po prawej stronie
+            # Karta z pełną datą i godziną po prawej stronie
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {d['color']}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -117,7 +119,7 @@ def main():
     with col_r:
         sel = st.session_state.active
         
-        # Interwał - steruje zegarami i RSI
+        # Sterowanie interwałem dla zegarów i RSI
         selected_tf = st.select_slider(
             "Interwał:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value="1D"
         )
@@ -130,7 +132,7 @@ def main():
         with c3:
             st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14)</small><br><b style="color:#3498db;">{DB[sel]["rsi"]}</b></div>', unsafe_allow_html=True)
             
-        # 3 ZEGARY
+        # Wyświetlanie 3 zegarów
         gauge_html = f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
