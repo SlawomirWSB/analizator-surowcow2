@@ -1,14 +1,14 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja V84
-st.set_page_config(layout="wide", page_title="XTB HUB V84 - Gauge Final Fix", page_icon="🧭")
+# 1. Konfiguracja i Stylizacja V85
+st.set_page_config(layout="wide", page_title="XTB HUB V85 - Triple Gauge + RSI", page_icon="📈")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Przyciski obok siebie */
+    /* Przyciski obok siebie - V83/V84 Style */
     div.stButton > button {
         background-color: #262730 !important;
         color: #ffffff !important;
@@ -21,9 +21,8 @@ st.markdown("""
         color: #00ff88 !important;
         border: 1px solid #00ff88 !important;
         font-weight: bold !important;
-        text-align: center;
-        display: flex; justify-content: center; align-items: center;
-        text-decoration: none; border-radius: 4px; height: 38px;
+        height: 38px; display: flex; align-items: center; justify-content: center;
+        text-decoration: none; border-radius: 4px;
     }
 
     .signal-card {
@@ -46,37 +45,38 @@ st.markdown("""
         border: 1px solid #333;
     }
 
-    .agg-box {
-        background-color: #161a25;
-        border: 1px solid #2a2e39;
+    .rsi-box {
+        background: #161a25;
+        border: 1px solid #3498db;
         border-radius: 8px;
-        padding: 15px;
+        padding: 10px;
         text-align: center;
+        margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza danych
+# 2. Rozszerzona Baza Danych
 DB = {
-    "GBP/CHF": {"in": "1.073", "tp": "1.071", "sl": "1.075", "upd": "12:20", "type": "SPRZEDAŻ", "color": "#ff4b4b", "tv_sym": "FX:GBPCHF", "inv": "STRONG SELL", "tv": "SELL"},
-    "GBP/AUD": {"in": "2.003", "tp": "2.007", "sl": "1.998", "upd": "12:30", "type": "KUPNO", "color": "#00ff88", "tv_sym": "FX:GBPAUD", "inv": "BUY", "tv": "STRONG BUY"},
-    "CAD/JPY": {"in": "113.85", "tp": "114.50", "sl": "113.30", "upd": "06:47", "type": "KUPNO", "color": "#00ff88", "tv_sym": "FX:CADJPY", "inv": "STRONG BUY", "tv": "BUY"}
+    "GBP/CHF": {"in": "1.073", "tp": "1.071", "sl": "1.075", "sym": "FX:GBPCHF", "inv": "STRONG SELL", "tv": "SELL", "rsi": "32.4 (Oversold)", "color": "#ff4b4b"},
+    "GBP/AUD": {"in": "2.003", "tp": "2.007", "sl": "1.998", "sym": "FX:GBPAUD", "inv": "BUY", "tv": "STRONG BUY", "rsi": "64.2 (Bullish)", "color": "#00ff88"},
+    "CAD/JPY": {"in": "113.85", "tp": "114.50", "sl": "113.30", "sym": "FX:CADJPY", "inv": "STRONG BUY", "tv": "BUY", "rsi": "58.7 (Neutral+)", "color": "#00ff88"}
 }
 
 def main():
-    st.markdown("<h2 style='text-align:center;'>Terminal V84 - Gauge Control</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;'>Terminal V85 - Triple Gauge + RSI Control</h2>", unsafe_allow_html=True)
     
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
-    col_l, col_r = st.columns([1, 1.5])
+    col_l, col_r = st.columns([1, 1.6])
     
     with col_l:
-        st.subheader("📩 Aktywne Sygnały")
+        st.subheader("📩 Sygnały")
         for pair, d in DB.items():
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {d['color']}">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <b style="font-size:1.2rem;">{pair}</b>
-                        <span style="background:{d['color']}; color:white; padding:2px 8px; border-radius:4px; font-weight:bold;">{d['type']}</span>
+                        <span style="background:{d['color']}; color:white; padding:2px 8px; border-radius:4px;">{d['inv']}</span>
                     </div>
                     <div class="data-row">IN: {d['in']} | TP: {d['tp']} | SL: {d['sl']}</div>
                 </div>
@@ -92,18 +92,22 @@ def main():
 
     with col_r:
         sel = st.session_state.active
-        st.subheader(f"📈 Analiza Techniczna: {sel}")
+        st.subheader(f"🔍 Pełna Analiza: {sel}")
         
-        # Dual Agregat Tekstowy
-        c1, c2 = st.columns(2)
+        # Sekcja RSI i Agregatów
+        c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown(f'<div class="agg-box"><small>Investing.com</small><br><b style="color:{DB[sel]["color"]}; font-size:1.4rem;">{DB[sel]["inv"]}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align:center; background:#161a25; padding:10px; border-radius:8px; border:1px solid #2a2e39;"><small>Investing</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["inv"]}</b></div>', unsafe_allow_html=True)
         with c2:
-            st.markdown(f'<div class="agg-box"><small>TradingView Text</small><br><b style="color:{DB[sel]["color"]}; font-size:1.4rem;">{DB[sel]["tv"]}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align:center; background:#161a25; padding:10px; border-radius:8px; border:1px solid #2a2e39;"><small>TradingView</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["tv"]}</b></div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown(f'<div class="rsi-box"><small>RSI (14)</small><br><b style="color:#3498db;">{DB[sel]["rsi"]}</b></div>', unsafe_allow_html=True)
             
         st.write("")
         
-        # POWRÓT DO ZEGARÓW (Gauge) - Wykorzystujemy najbardziej stabilny widget TradingView
+        # TRZY ZEGARY + WYBÓR INTERWAŁU
+        # displayMode: multiple -> wymusza 3 zegary
+        # showIntervalTabs: true -> przywraca 1m, 5m, 1h, 1d itd.
         gauge_html = f"""
         <div class="tradingview-widget-container">
           <div class="tradingview-widget-container__widget"></div>
@@ -113,9 +117,9 @@ def main():
             "width": "100%",
             "isTransparent": true,
             "height": 450,
-            "symbol": "{DB[sel]['tv_sym']}",
-            "showIntervalTabs": false,
-            "displayMode": "single",
+            "symbol": "{DB[sel]['sym']}",
+            "showIntervalTabs": true,
+            "displayMode": "multiple",
             "locale": "pl",
             "colorTheme": "dark"
           }}
@@ -123,5 +127,6 @@ def main():
         </div>
         """
         components.html(gauge_html, height=500)
+        st.caption("Trzy filary analizy: Oscylatory, Podsumowanie i Średnie kroczące. Wybierz interwał powyżej zegarów.")
 
 if __name__ == "__main__": main()
