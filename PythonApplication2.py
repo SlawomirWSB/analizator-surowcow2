@@ -1,14 +1,14 @@
 import streamlit as st
 
 # 1. Konfiguracja strony
-st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V59", page_icon="🎯")
+st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V60", page_icon="📈")
 
-# 2. Stylizacja CSS dla lepszej czytelności
+# 2. Stylizacja CSS
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
     
-    /* Lewy Panel - Karty Sygnałów */
+    /* Lewy Panel */
     .signal-card {
         background-color: #1e222d;
         border-radius: 10px;
@@ -20,13 +20,7 @@ st.markdown("""
     .buy { border-left-color: #00ff88 !important; }
     .sell { border-left-color: #ff4b4b !important; }
     
-    .update-tag { 
-        color: #f39c12; 
-        font-weight: bold; 
-        font-size: 0.85rem; 
-        margin-bottom: 8px;
-        display: block;
-    }
+    .update-tag { color: #f39c12; font-weight: bold; font-size: 0.85rem; margin-bottom: 8px; display: block; }
     
     .price-details {
         background: rgba(255,255,255,0.07);
@@ -34,7 +28,6 @@ st.markdown("""
         border-radius: 8px;
         margin: 12px 0;
         font-family: 'Courier New', monospace;
-        font-size: 1.05rem;
     }
 
     /* Prawy Panel - Agregator */
@@ -47,36 +40,31 @@ st.markdown("""
         top: 20px;
     }
     
-    .verdict-box {
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-top: 10px;
-    }
-    
     .status-large { 
         display: block;
-        font-size: 1.8rem; 
+        font-size: 2rem; 
         font-weight: 900; 
-        margin-top: 5px;
+        margin-top: 10px;
     }
 
     .btn-telegram {
-        display: inline-block;
-        padding: 10px 20px;
+        display: block;
+        padding: 15px;
         background-color: #0088cc;
         color: white !important;
-        text-decoration: none;
-        border-radius: 5px;
+        text-decoration: none !important;
+        border-radius: 8px;
         font-weight: bold;
-        margin-top: 15px;
+        margin-top: 20px;
         text-align: center;
-        width: 100%;
+        font-size: 1.1rem;
+        transition: 0.3s;
     }
+    .btn-telegram:hover { background-color: #00aaff; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Baza danych (Dane z Twoich zrzutów ekranu - Jan 10)
+# 3. Baza danych z linkami do konkretnych wiadomości
 DATA = {
     "GOLD": {
         "source": "VasilyTrader",
@@ -86,7 +74,7 @@ DATA = {
         "sl": "4495.00",
         "updated": "10.01.2026 15:30",
         "note": "Odbicie od poziomu 4500.",
-        "link": "https://t.me/s/VasilyTrading",
+        "link": "https://t.me/VasilyTrading", # Link ogólny kanału
         "investing": {"verdict": "STRONG SELL", "color": "#ff4b4b", "summary": "Wskaźniki: Sell (5) / Buy (2)"},
         "tradingview": {"verdict": "STRONG BUY", "color": "#00ff88", "summary": "Średnie kroczące: Silne Kupno (13)"}
     },
@@ -98,7 +86,7 @@ DATA = {
         "sl": "1.075",
         "updated": "10.01.2026 12:20",
         "note": "Testowanie oporu 1.073.",
-        "link": "https://t.me/s/signalsproviderfx/410",
+        "link": "https://t.me/signalsproviderfx/410", # Bezpośredni link do wiadomości
         "investing": {"verdict": "SELL", "color": "#ff4b4b", "summary": "Wskaźniki: Sell (5) / Buy (1)"},
         "tradingview": {"verdict": "NEUTRAL", "color": "#8f94a1", "summary": "Podsumowanie: Neutralne (7)"}
     },
@@ -110,103 +98,83 @@ DATA = {
         "sl": "113.30",
         "updated": "10.01.2026 06:47",
         "note": "Wybicie z formacji trójkąta.",
-        "link": "https://t.me/s/prosignalsfxx",
+        "link": "https://t.me/prosignalsfxx/552", # Bezpośredni link do wiadomości
         "investing": {"verdict": "STRONG BUY", "color": "#00ff88", "summary": "Wskaźniki: Buy (8)"},
         "tradingview": {"verdict": "BUY", "color": "#00ff88", "summary": "Średnie: Silne Kupno (12)"}
     }
 }
 
 def main():
-    st.title("🎯 Terminal Sygnałowy V59 (Jan 10, 2026)")
+    st.title("🛡️ Terminal Agregujący V60 (10.01.2026)")
 
     if 'active_pair' not in st.session_state:
         st.session_state.active_pair = "GOLD"
 
     col_left, col_right = st.columns([1, 1])
 
-    # --- PANEL LEWY: PEŁNE DANE SYGNAŁÓW ---
+    # --- PANEL LEWY ---
     with col_left:
-        st.subheader("📩 Sygnały Live (Telegram)")
-        
+        st.subheader("📩 Sygnały z Twoich Źródeł")
         for pair, info in DATA.items():
             card_class = "buy" if info["type"] == "BUY" else "sell"
-            type_label = "🟢 KUPNO" if info["type"] == "BUY" else "🔴 SPRZEDAŻ"
-            
             st.markdown(f"""
                 <div class="signal-card {card_class}">
                     <span class="update-tag">🕒 Aktualizacja: {info['updated']}</span>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin:0;">{pair}</h3>
-                        <b style="color: {'#00ff88' if info['type'] == 'BUY' else '#ff4b4b'}">{type_label}</b>
-                    </div>
-                    <p style="margin: 5px 0;">Źródło: <b>{info['source']}</b></p>
+                    <h3 style="margin:0;">{pair} | {info['source']}</h3>
                     <div class="price-details">
-                        <b>WEJŚCIE:</b> {info['price']}<br>
-                        <b>TAKE PROFIT:</b> {info['tp']}<br>
-                        <b>STOP LOSS:</b> {info['sl']}
+                        <b>WEJŚCIE:</b> {info['price']} | <b>TP:</b> {info['tp']} | <b>SL:</b> {info['sl']}
                     </div>
-                    <small><i>{info['note']}</i></small>
                 </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"🔎 Analizuj {pair}", key=f"btn_{pair}", use_container_width=True):
+            if st.button(f"🔍 Weryfikuj i Agreguj {pair}", key=f"btn_{pair}", use_container_width=True):
                 st.session_state.active_pair = pair
                 st.rerun()
 
-    # --- PANEL PRAWY: POPRAWIONY AGREGATOR ---
+    # --- PANEL PRAWY: AGREGATOR ---
     with col_right:
         item = DATA[st.session_state.active_pair]
         
-        st.subheader(f"📊 Agregator Weryfikacyjny: {st.session_state.active_pair}")
+        st.subheader(f"📊 Agregat Danych: {st.session_state.active_pair}")
         
         st.markdown(f"""<div class="aggregator-container">
-            <h2 style="margin-bottom:0;">{st.session_state.active_pair}</h2>
-            <p style="color:#8f94a1;">Weryfikacja techniczna dla sygnału od <b>{item['source']}</b></p>
-            <hr style="border-color: #2a2e39; margin: 20px 0;">
+            <h2 style="margin:0;">{st.session_state.active_pair} Analysis</h2>
+            <hr style="border-color: #2a2e39; margin: 15px 0;">
         """, unsafe_allow_html=True)
         
-        # Sekcja werdyktów (Investing i TradingView)
+        # Sekcja werdyktów technicznych
         v_col1, v_col2 = st.columns(2)
-        
         with v_col1:
             st.markdown(f"""
-                <div style="background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #2a2e39;">
-                    <b style="color:#ff4b4b;">🔴 Investing.com</b><br>
+                <div style="background: #1e222d; padding: 20px; border-radius: 10px; border: 1px solid #2a2e39; text-align: center;">
+                    <b style="color:#ff4b4b;">Investing.com</b><br>
                     <span class="status-large" style="color:{item['investing']['color']}">{item['investing']['verdict']}</span>
-                    <hr style="border-color: #2a2e39; margin: 10px 0;">
-                    <small style="color:#8f94a1;">{item['investing']['summary']}</small>
                 </div>
             """, unsafe_allow_html=True)
-            
         with v_col2:
             st.markdown(f"""
-                <div style="background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #2a2e39;">
-                    <b style="color:#00ff88;">🟢 TradingView</b><br>
+                <div style="background: #1e222d; padding: 20px; border-radius: 10px; border: 1px solid #2a2e39; text-align: center;">
+                    <b style="color:#00ff88;">TradingView</b><br>
                     <span class="status-large" style="color:{item['tradingview']['color']}">{item['tradingview']['verdict']}</span>
-                    <hr style="border-color: #2a2e39; margin: 10px 0;">
-                    <small style="color:#8f94a1;">{item['tradingview']['summary']}</small>
                 </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Werdykt Zbiorczy
-        if "BUY" in item['investing']['verdict'] and "BUY" in item['tradingview']['verdict']:
-            st.success("✅ **PEŁNA ZGODNOŚĆ:** Wszystkie systemy potwierdzają kierunek wzrostowy.")
-        elif "SELL" in item['investing']['verdict'] and "SELL" in item['tradingview']['verdict']:
-            st.error("🚨 **PEŁNA ZGODNOŚĆ:** Wszystkie systemy potwierdzają kierunek spadkowy.")
-        else:
-            st.warning("⚠️ **ROZBIEŻNOŚĆ:** Systemy techniczne nie są zgodne. Zachowaj ostrożność.")
-
-        # Przycisk do oryginalnej treści
+        # Przycisk linkujący do konkretnej wiadomości
         st.markdown(f"""
-            <hr style="border-color: #2a2e39; margin: 25px 0;">
-            <b>Weryfikacja źródła:</b>
             <a href="{item['link']}" target="_blank" class="btn-telegram">
-                ✈️ Otwórz oryginalny sygnał na Telegramie
+                ✈️ Otwórz oryginalny sygnał na Telegramie ({item['source']})
             </a>
+            <p style="margin-top:20px; color:#8f94a1;"><i>Notatka: {item['note']}</i></p>
         """, unsafe_allow_html=True)
         
+        # Podsumowanie zgodności
+        if "BUY" in item['investing']['verdict'] and "BUY" in item['tradingview']['verdict']:
+            st.success("✅ Pełna zgodność systemów (KUPNO)")
+        elif "SELL" in item['investing']['verdict'] and "SELL" in item['tradingview']['verdict']:
+            st.error("🚨 Pełna zgodność systemów (SPRZEDAŻ)")
+        else:
+            st.warning("⚠️ Brak zgodności wskaźników technicznych")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
