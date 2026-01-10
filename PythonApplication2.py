@@ -1,35 +1,13 @@
 import streamlit as st
-import streamlit.components.v1 as components
 
 # 1. Konfiguracja i Stylizacja
-st.set_page_config(layout="wide", page_title="XTB HUB V77 - Widget Fix", page_icon="⚙️")
+st.set_page_config(layout="wide", page_title="XTB HUB V78 - Final Gauge Fix", page_icon="📈")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Przyciski pod każdą parą */
-    div.stButton > button {
-        color: #ffffff !important;
-        background-color: #2a2e39 !important;
-        border: 1px solid #3d4451 !important;
-        font-weight: bold !important;
-        width: 100%;
-        margin-top: 5px;
-    }
-    
-    /* Niebieskie linki "Otwórz oryginał" */
-    .stLinkButton > a {
-        background-color: #1e222d !important;
-        color: #3498db !important;
-        border: 1px solid #3498db !important;
-        font-size: 0.85rem !important;
-        text-align: center;
-        border-radius: 5px;
-        margin-top: 5px;
-        display: block;
-    }
-
+    /* Stylizacja kart sygnałów */
     .signal-card {
         background-color: #1e222d;
         border-radius: 12px;
@@ -55,6 +33,23 @@ st.markdown("""
         margin-bottom: 10px;
         text-align: center;
     }
+
+    /* Przyciski i Linki */
+    div.stButton > button {
+        background-color: #2a2e39 !important;
+        color: white !important;
+        width: 100%;
+        border: 1px solid #3d4451 !important;
+    }
+    
+    .stLinkButton > a {
+        background-color: #1e222d !important;
+        color: #3498db !important;
+        border: 1px solid #3498db !important;
+        display: block;
+        text-align: center;
+        border-radius: 5px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -78,24 +73,25 @@ DB = {
 }
 
 def main():
-    st.markdown('<h2 style="text-align:center;">Terminal V77 - Final Native Fix</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center;">Terminal V78 - Triple Signal Verify</h2>', unsafe_allow_html=True)
 
+    # Wybór interwału
     interval_map = {"1H": "1h", "4H": "4h", "1D": "1d"}
-    global_tf = st.select_slider("Globalny interwał:", options=["1H", "4H", "1D"], value="1D")
+    global_tf = st.select_slider("Interwał weryfikacji:", options=["1H", "4H", "1D"], value="1D")
     tv_interval = interval_map[global_tf]
 
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
     col_l, col_r = st.columns([1.1, 1.4])
 
-    # --- PANEL LEWY: DANE TRANSAKCYJNE ---
+    # --- PANEL LEWY: LISTA SYGNAŁÓW (Pełne Dane) ---
     with col_l:
-        st.subheader("📩 Sygnały")
+        st.subheader("📩 Sygnały Live")
         for pair, info in DB.items():
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {info['color']}">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-size:1.1rem; font-weight:bold;">{pair}</span>
-                        <span style="background:{info['color']}; color:white; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">{info['type']}</span>
+                        <span style="background:{info['color']}; color:white; padding:2px 8px; border-radius:4px; font-weight:bold;">{info['type']}</span>
                     </div>
                     <div class="data-table">
                         <table style="width:100%; color:#b2b5be; font-size:0.85rem; text-align:left;">
@@ -105,7 +101,7 @@ def main():
                             </tr>
                         </table>
                     </div>
-                    <small style="color:#63676a;">🕒 {info['updated']} | {global_tf}</small>
+                    <small style="color:#63676a;">🕒 Aktualizacja: {info['updated']} | TF: {global_tf}</small>
                 </div>
             """, unsafe_allow_html=True)
             if st.button(f"Analiza {pair}", key=f"btn_{pair}"):
@@ -113,7 +109,7 @@ def main():
             st.link_button(f"✈️ Otwórz oryginał {pair}", info["link"], use_container_width=True)
             st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
 
-    # --- PANEL PRAWY: WERYFIKACJA + WIDGET ---
+    # --- PANEL PRAWY: AGREGATOR + WIDGET NATIVE ---
     with col_r:
         item = DB[st.session_state.active]
         data = item.get(global_tf, {"inv": "N/A", "tv": "N/A"})
@@ -126,27 +122,28 @@ def main():
         with c2:
             st.markdown(f'<div class="aggregator-card"><small>TradingView Text</small><br><b style="color:{item["color"]}; font-size:1.4rem;">{data["tv"]}</b></div>', unsafe_allow_html=True)
 
-        # NOWA METODA: Wstrzyknięcie czystego skryptu bez iframe
-        tv_widget_html = f"""
-        <div class="tradingview-widget-container" style="height:450px;">
+        # OSTATECZNA METODA: Wymuszenie czystego HTML do body aplikacji
+        # Widget z zegarami
+        tv_widget_script = f"""
+        <div class="tradingview-widget-container" style="width: 100%; height: 500px;">
             <div class="tradingview-widget-container__widget"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
             {{
-                "interval": "{tv_interval}",
-                "width": "100%",
-                "isTransparent": true,
-                "height": 450,
-                "symbol": "{item['symbol']}",
-                "showIntervalTabs": false,
-                "displayMode": "multiple",
-                "locale": "pl",
-                "colorTheme": "dark"
+              "interval": "{tv_interval}",
+              "width": "100%",
+              "isTransparent": true,
+              "height": "100%",
+              "symbol": "{item['symbol']}",
+              "showIntervalTabs": false,
+              "displayMode": "multiple",
+              "locale": "pl",
+              "colorTheme": "dark"
             }}
             </script>
         </div>
         """
-        # Używamy components.html z wyłączonym czyszczeniem skryptów
-        components.html(tv_widget_html, height=460)
-        st.caption("Oryginalna analiza techniczna (Oscylatory + Średnie)")
+        # Używamy st.components.v1.html z wyższym priorytetem ładowania
+        st.components.v1.html(tv_widget_script, height=520, scrolling=False)
+        st.caption(f"ℹ️ System analizuje 26 wskaźników technicznych dla {st.session_state.active}.")
 
 if __name__ == "__main__": main()
