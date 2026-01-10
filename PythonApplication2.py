@@ -1,22 +1,23 @@
 import streamlit as st
 
-# 1. Konfiguracja strony i CSS
-st.set_page_config(layout="wide", page_title="XTB HUB V70 - Gauge Pro", page_icon="⚖️")
+# 1. Konfiguracja i Stylizacja
+st.set_page_config(layout="wide", page_title="XTB HUB V71 - Ultimate", page_icon="📈")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Przyciski - Naprawa widoczności */
+    /* Przyciski - Naprawa widoczności (Zawsze białe) */
     div.stButton > button {
         color: #ffffff !important;
         background-color: #2a2e39 !important;
         border: 1px solid #3d4451 !important;
         font-weight: bold !important;
+        width: 100%;
     }
-    div.stButton > button:hover { border-color: #00ff88 !important; }
+    div.stButton > button:hover { border-color: #00ff88 !important; background-color: #3d4451 !important; }
 
-    /* Karty */
+    /* Karty i Agregatory */
     .signal-card {
         background-color: #1e222d;
         border-radius: 12px;
@@ -32,11 +33,11 @@ st.markdown("""
         margin-bottom: 15px;
     }
     
-    /* Custom Progress Bar (Zamiast licznika) */
+    /* Pasek Podsumowania */
     .gauge-wrapper {
         background: #2a2e39;
-        height: 12px;
-        border-radius: 6px;
+        height: 14px;
+        border-radius: 7px;
         margin: 15px 0;
         overflow: hidden;
         display: flex;
@@ -45,57 +46,72 @@ st.markdown("""
     .gauge-neutral { background: #f39c12; height: 100%; }
     .gauge-buy { background: #00ff88; height: 100%; }
     
-    .pair-title { font-size: 1.3rem; font-weight: bold; }
+    /* Stylizacja Zegarów */
+    .mini-gauge {
+        text-align: center;
+        padding: 10px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 8px;
+        border: 1px solid #2a2e39;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Danych (Synchronizacja 10.01.2026)
+# 2. Baza Danych Multi-Timeframe (10.01.2026)
 DB = {
     "GBP/CHF": {
-        "updated": "12:20", "type": "SPRZEDAŻ", "color": "#ff4b4b",
-        "1D": {"inv": "STRONG SELL", "tv": "STRONG SELL", "s": 14, "n": 9, "k": 3},
-        "4H": {"inv": "SELL", "tv": "SELL", "s": 10, "n": 5, "k": 5},
-        "1H": {"inv": "NEUTRAL", "tv": "SELL", "s": 6, "n": 8, "k": 8}
+        "updated": "12:20", "type": "SPRZEDAŻ", "color": "#ff4b4b", "link": "https://t.me/s/signalsproviderfx",
+        "1D": {"inv": "STRONG SELL", "tv": "SELL", "s": 14, "n": 9, "k": 3},
+        "4H": {"inv": "SELL", "tv": "NEUTRAL", "s": 10, "n": 5, "k": 5},
+        "1H": {"inv": "NEUTRAL", "tv": "BUY", "s": 6, "n": 8, "k": 8}
     },
     "GBP/AUD": {
-        "updated": "12:30", "type": "KUPNO", "color": "#00ff88",
+        "updated": "12:30", "type": "KUPNO", "color": "#00ff88", "link": "https://t.me/s/signalsproviderfx",
         "1D": {"inv": "BUY", "tv": "STRONG BUY", "s": 1, "n": 1, "k": 12},
         "4H": {"inv": "STRONG BUY", "tv": "STRONG BUY", "s": 0, "n": 0, "k": 15},
         "1H": {"inv": "BUY", "tv": "BUY", "s": 2, "n": 2, "k": 8}
     },
     "CAD/JPY": {
-        "updated": "06:47", "type": "KUPNO", "color": "#00ff88",
+        "updated": "06:47", "type": "KUPNO", "color": "#00ff88", "link": "https://t.me/s/prosignalsfxx",
         "1D": {"inv": "STRONG BUY", "tv": "BUY", "s": 2, "n": 3, "k": 14},
         "4H": {"inv": "BUY", "tv": "BUY", "s": 5, "n": 5, "k": 10},
         "1H": {"inv": "NEUTRAL", "tv": "NEUTRAL", "s": 8, "n": 8, "k": 4}
     }
 }
 
+def render_mini_gauge(title, verdict, color):
+    st.markdown(f"""
+        <div class="mini-gauge">
+            <small style="color:#b2b5be;">{title}</small>
+            <div style="color:{color}; font-weight:bold; font-size:1.1rem; margin-top:5px;">{verdict}</div>
+            <div style="height:3px; background:#2a2e39; margin-top:8px; border-radius:2px;">
+                <div style="width:70%; height:100%; background:{color}; border-radius:2px;"></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
 def main():
-    st.markdown('<h2 style="text-align:center;">Terminal V70 - Gauge View</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center;">Terminal V71 - Agregat Pełny</h2>', unsafe_allow_html=True)
 
     # Globalny wybór interwału
-    global_tf = st.select_slider(
-        "Interwał analizy (Domyślnie 1D):",
-        options=["1H", "4H", "1D"],
-        value="1D"
-    )
+    global_tf = st.select_slider("Ustaw interwał dla wszystkich systemów:", options=["1H", "4H", "1D"], value="1D")
 
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
-    col_l, col_r = st.columns([1, 1.2])
+    col_l, col_r = st.columns([1, 1.4])
 
     with col_l:
+        st.subheader("📩 Sygnały")
         for pair, info in DB.items():
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {info['color']}">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="pair-title">{pair}</span>
+                        <span style="font-size:1.3rem; font-weight:bold;">{pair}</span>
                         <span style="background:{info['color']}; color:white; padding:2px 10px; border-radius:5px; font-weight:bold;">{info['type']}</span>
                     </div>
-                    <small style="color:#b2b5be;">🕒 {info['updated']} | {global_tf}</small>
+                    <small style="color:#b2b5be;">🕒 {info['updated']} | Global TF: {global_tf}</small>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(f"Analiza {pair}", key=f"btn_{pair}"):
+            if st.button(f"Weryfikuj {pair}", key=f"btn_{pair}"):
                 st.session_state.active = pair
                 st.rerun()
 
@@ -103,36 +119,37 @@ def main():
         item = DB[st.session_state.active]
         data = item[global_tf]
         
-        # Agregaty Trendu
+        st.subheader(f"📊 Analiza ({global_tf}): {st.session_state.active}")
+        
+        # Agregaty Główne
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(f'<div class="aggregator-card"><small>Investing.com</small><br><b style="font-size:1.5rem; color:{item["color"]}">{data["inv"]}</b></div>', unsafe_allow_html=True)
         with c2:
             st.markdown(f'<div class="aggregator-card"><small>TradingView Trend</small><br><b style="font-size:1.5rem; color:{item["color"]}">{data["tv"]}</b></div>', unsafe_allow_html=True)
 
-        # WIZUALNY WIDGET (Zamiast licznika)
+        # PASEK PODSUMOWANIA
         total = data['s'] + data['n'] + data['k']
-        s_pct = (data['s'] / total) * 100
-        n_pct = (data['n'] / total) * 100
-        k_pct = (data['k'] / total) * 100
-
         st.markdown(f"""
             <div class="aggregator-card">
-                <div style="text-align:center; font-weight:bold; color:#b2b5be; margin-bottom:10px;">PODSUMOWANIE TECHNICZNE ({global_tf})</div>
+                <div style="text-align:center; font-weight:bold; color:#b2b5be;">PODSUMOWANIE ANALITYCZNE ({global_tf})</div>
                 <div class="gauge-wrapper">
-                    <div class="gauge-sell" style="width: {s_pct}%"></div>
-                    <div class="gauge-neutral" style="width: {n_pct}%"></div>
-                    <div class="gauge-buy" style="width: {k_pct}%"></div>
+                    <div class="gauge-sell" style="width: {(data['s']/total)*100}%"></div>
+                    <div class="gauge-neutral" style="width: {(data['n']/total)*100}%"></div>
+                    <div class="gauge-buy" style="width: {(data['k']/total)*100}%"></div>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                    <span style="color:#ff4b4b;">Sprzedaż: {data['s']}</span>
-                    <span style="color:#f39c12;">Neutralnie: {data['n']}</span>
-                    <span style="color:#00ff88;">Kupno: {data['k']}</span>
-                </div>
-                <div style="margin-top:15px; font-size:0.8rem; color:#8f94a1; border-top:1px solid #2a2e39; padding-top:10px; text-align:center;">
-                    Wizualizacja oparta na 26 wskaźnikach technicznych (Oscylatory + Średnie).
-                </div>
-            </div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top:10px;">
         """, unsafe_allow_html=True)
+        
+        g1, g2, g3 = st.columns(3)
+        with g1: render_mini_gauge("Oscylatory", "Neutralnie" if data['n'] > data['s'] else "Sprzedaż", "#f39c12" if data['n'] > data['s'] else "#ff4b4b")
+        with g2: render_mini_gauge("Podsumowanie", data['tv'], item['color'])
+        with g3: render_mini_gauge("Średnie", data['inv'], item['color'])
+        
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        # PRZYWRÓCONY LINK DO ŹRÓDŁA
+        st.link_button(f"✈️ Otwórz oryginalny sygnał na Telegramie", item["link"], use_container_width=True)
 
 if __name__ == "__main__": main()
