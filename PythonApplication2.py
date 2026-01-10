@@ -2,22 +2,23 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # 1. Konfiguracja i Stylizacja
-st.set_page_config(layout="wide", page_title="XTB HUB V75 - Full Data", page_icon="⚖️")
+st.set_page_config(layout="wide", page_title="XTB HUB V76 - Stable Widget", page_icon="⚖️")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Przyciski operacyjne */
+    /* Przyciski analizy */
     div.stButton > button {
         color: #ffffff !important;
         background-color: #2a2e39 !important;
         border: 1px solid #3d4451 !important;
         font-weight: bold !important;
         width: 100%;
+        margin-top: 5px;
     }
     
-    /* Linki pod każdą parą */
+    /* Linki do Telegrama */
     .stLinkButton > a {
         background-color: #1e222d !important;
         color: #3498db !important;
@@ -25,6 +26,7 @@ st.markdown("""
         font-size: 0.8rem !important;
         text-align: center;
         border-radius: 5px;
+        margin-top: 5px;
     }
 
     .signal-card {
@@ -37,11 +39,10 @@ st.markdown("""
 
     .data-table {
         width: 100%;
-        background: #161a25;
-        border-radius: 8px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 5px;
         padding: 10px;
-        margin-top: 10px;
-        font-family: monospace;
+        margin: 10px 0;
         border: 1px solid #2a2e39;
     }
 
@@ -56,7 +57,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Pełna Baza Danych (Synchronizacja 10.01.2026)
+# 2. Pełna Baza Danych (Data: 10.01.2026)
 DB = {
     "GBP/CHF": {
         "updated": "12:20", "type": "SPRZEDAŻ", "color": "#ff4b4b", "symbol": "FX:GBPCHF", 
@@ -76,18 +77,18 @@ DB = {
 }
 
 def main():
-    st.markdown('<h2 style="text-align:center;">Terminal V75 - Triple Verification + Data</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center;">Terminal V76 - Stable Verification</h2>', unsafe_allow_html=True)
 
     interval_map = {"1H": "1h", "4H": "4h", "1D": "1d"}
-    global_tf = st.select_slider("Interwał systemowy:", options=["1H", "4H", "1D"], value="1D")
+    global_tf = st.select_slider("Wybierz interwał dla wszystkich analiz:", options=["1H", "4H", "1D"], value="1D")
     tv_interval = interval_map[global_tf]
 
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
     col_l, col_r = st.columns([1.1, 1.4])
 
-    # --- PANEL LEWY: LISTA + PEŁNE DANE WEJŚCIA ---
+    # --- PANEL LEWY: LISTA + DANE WEJŚCIA + LINKI ---
     with col_l:
-        st.subheader("📩 Sygnały Live")
+        st.subheader("📩 Aktywne Sygnały")
         for pair, info in DB.items():
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {info['color']}">
@@ -96,59 +97,40 @@ def main():
                         <span style="background:{info['color']}; color:white; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">{info['type']}</span>
                     </div>
                     <div class="data-table">
-                        <table style="width:100%; color:#b2b5be; font-size:0.85rem;">
-                            <tr><td>IN:</td><td>TP:</td><td>SL:</td></tr>
-                            <tr style="color:white; font-weight:bold;">
+                        <table style="width:100%; color:#b2b5be; font-size:0.85rem; text-align:left;">
+                            <tr><th>IN</th><th>TP</th><th>SL</th></tr>
+                            <tr style="color:white; font-weight:bold; font-size:1rem;">
                                 <td>{info['in']}</td><td>{info['tp']}</td><td>{info['sl']}</td>
                             </tr>
                         </table>
                     </div>
-                    <small style="color:#63676a;">🕒 Akt: {info['updated']} | TF: {global_tf}</small>
+                    <small style="color:#63676a;">🕒 Aktualizacja: {info['updated']} | TF: {global_tf}</small>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(f"Analiza {pair}", key=f"v_{pair}"):
+            if st.button(f"Sprawdź Analizę {pair}", key=f"btn_{pair}"):
                 st.session_state.active = pair
             st.link_button(f"✈️ Otwórz oryginał {pair}", info["link"], use_container_width=True)
             st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
 
-    # --- PANEL PRAWY: WERYFIKACJA + NAPRAWIONY WIDGET ---
+    # --- PANEL PRAWY: DANE TEKSTOWE + STABILNY WIDGET ---
     with col_r:
         item = DB[st.session_state.active]
-        # Fallback dla brakujących interwałów w bazie tekstowej
-        data = item.get(global_tf, {"inv": "Brak danych", "tv": "Brak danych"})
+        data = item.get(global_tf, {"inv": "N/A", "tv": "N/A"})
         
         st.subheader(f"📊 Analiza {st.session_state.active} ({global_tf})")
         
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown(f'<div class="aggregator-card"><small>Investing.com</small><br><b style="color:{item["color"]}">{data["inv"]}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="aggregator-card"><small>Investing.com</small><br><b style="color:{item["color"]}; font-size:1.4rem;">{data["inv"]}</b></div>', unsafe_allow_html=True)
         with c2:
-            st.markdown(f'<div class="aggregator-card"><small>TradingView Text</small><br><b style="color:{item["color"]}">{data["tv"]}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="aggregator-card"><small>TradingView Text</small><br><b style="color:{item["color"]}; font-size:1.4rem;">{data["tv"]}</b></div>', unsafe_allow_html=True)
 
-        # STABILNY WIDGET TRADINGVIEW (Naprawiony błąd ładowania)
-        tv_html = f"""
-        <html>
-        <body style="background-color: transparent; margin: 0;">
-            <div class="tradingview-widget-container">
-                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-                {{
-                    "interval": "{tv_interval}",
-                    "width": "100%",
-                    "isTransparent": true,
-                    "height": 430,
-                    "symbol": "{item['symbol']}",
-                    "showIntervalTabs": false,
-                    "displayMode": "multiple",
-                    "locale": "pl",
-                    "colorTheme": "dark"
-                }}
-                </script>
-            </div>
-        </body>
-        </html>
-        """
-        components.html(tv_html, height=450, scrolling=False)
+        # STABILNY WIDGET - Metoda wymuszonego ładowania przez URL
+        # Używamy bezpośredniego URL do widgetu technicznego
+        tv_url = f"https://s.tradingview.com/embed-widget/technical-analysis/?locale=pl&symbol={item['symbol']}&interval={tv_interval}&displayMode=multiple&colorTheme=dark&isTransparent=true"
         
-        st.info(f"Oryginalne zegary TV dla {st.session_state.active} na interwale {global_tf}.")
+        st.markdown(f'<iframe src="{tv_url}" width="100%" height="450" frameborder="0" allowtransparency="true" scrolling="no" style="border-radius:10px; border:1px solid #2a2e39;"></iframe>', unsafe_allow_html=True)
+        
+        st.caption(f"ℹ️ Oryginalny widget techniczny ładowany bezpośrednio z serwerów TradingView.")
 
 if __name__ == "__main__": main()
