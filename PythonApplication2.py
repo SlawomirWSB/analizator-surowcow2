@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja V92 - UI & Data Fix
-st.set_page_config(layout="wide", page_title="HUB V92")
+# 1. Konfiguracja V93 - Multi-Source & Sync
+st.set_page_config(layout="wide", page_title="HUB V93")
 
 st.markdown("""
     <style>
@@ -37,24 +37,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza danych z dynamicznym RSI dla każdego instrumentu
+# 2. Baza danych z dedykowanymi linkami
 DB = {
     "GBP/CHF": {
         "in": "1.073", "tp": "1.071", "sl": "1.075", "sym": "FX:GBPCHF", "type": "SPRZEDAŻ", "color": "#ff4b4b", "upd": "10.01.2026 | 12:20",
+        "tg": "https://t.me/s/signalsproviderfx",
         "rsi": {"1m": "38.2", "5m": "44.5", "1h": "52.1", "1D": "48.9"}
     },
     "GBP/AUD": {
         "in": "2.003", "tp": "2.007", "sl": "1.998", "sym": "FX:GBPAUD", "type": "KUPNO", "color": "#00ff88", "upd": "10.01.2026 | 12:30",
+        "tg": "https://t.me/s/signalsproviderfx",
         "rsi": {"1m": "41.5", "5m": "54.8", "1h": "58.2", "1D": "61.3"}
     },
     "CAD/JPY": {
         "in": "113.85", "tp": "114.50", "sl": "113.30", "sym": "FX:CADJPY", "type": "KUPNO", "color": "#00ff88", "upd": "10.01.2026 | 06:47",
+        "tg": "https://t.me/s/prosignalsfxx",
         "rsi": {"1m": "45.9", "5m": "51.2", "1h": "59.8", "1D": "62.4"}
     }
 }
 
 def main():
-    st.markdown('<div class="mobile-header">V92 - RSI & BUTTON FIX</div>', unsafe_allow_html=True)
+    st.markdown('<div class="mobile-header">V93 - MULTI-TG SOURCE</div>', unsafe_allow_html=True)
     
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
     
@@ -75,36 +78,18 @@ def main():
             
             c1, c2 = st.columns(2)
             with c1:
-                # Aktywacja instrumentu i wymuszenie odświeżenia RSI
                 if st.button(f"📊 ANALIZA", key=f"btn_an_{pair}", use_container_width=True):
                     st.session_state.active = pair
             with c2:
-                st.link_button(f"✈️ TELEGRAM", "https://t.me/s/signalsproviderfx", use_container_width=True)
+                # Dynamiczny link Telegram zależny od instrumentu
+                st.link_button(f"✈️ TELEGRAM", d['tg'], use_container_width=True)
 
     with col_r:
         sel = st.session_state.active
         selected_tf = st.select_slider("Interwał analizy:", 
                                      options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value="1D")
         
-        # Pobieranie RSI specyficznego dla pary i interwału
         current_rsi = DB[sel]["rsi"].get(selected_tf, "50.0")
         
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f'<div class="stat-box"><small>Investing ({selected_tf})</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["type"]}</b></div>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<div class="stat-box"><small>TradingView ({selected_tf})</small><br><b style="color:{DB[sel]["color"]}">{DB[sel]["type"]}</b></div>', unsafe_allow_html=True)
-        with c3: st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14) {sel}</small><br><b style="color:#3498db;">{current_rsi}</b></div>', unsafe_allow_html=True)
-
-        gauge_html = f"""
-        <div class="tradingview-widget-container">
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-          {{
-            "interval": "{selected_tf}", "width": "100%", "isTransparent": true, "height": 400,
-            "symbol": "{DB[sel]['sym']}", "showIntervalTabs": false, "displayMode": "multiple",
-            "locale": "pl", "colorTheme": "dark"
-          }}
-          </script>
-        </div>
-        """
-        components.html(gauge_html, height=420)
-
-if __name__ == "__main__": main()
+        with c1: st.markdown(f
