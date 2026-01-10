@@ -3,10 +3,10 @@ import streamlit.components.v1 as components
 from streamlit_autorefresh import st_autorefresh
 
 # 1. Konfiguracja strony
-st.set_page_config(layout="wide", page_title="XTB TERMINAL V34 PRO", page_icon="📈")
+st.set_page_config(layout="wide", page_title="XTB TERMINAL PRO", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Stylizacja
+# Stylizacja ramek i tła
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
@@ -16,29 +16,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Instrumentów (Ujednolicone symbole)
+# 2. Baza Instrumentów (Mapowanie dla różnych źródeł)
 DB = {
     "SUROWCE": {
-        "GOLD (Złoto)": "XAUUSD",
-        "COCOA (Kakao)": "COCOA",
-        "NATGAS (Gaz)": "NATGAS",
-        "OIL.WTI (Ropa)": "USOIL",
-        "SILVER (Srebro)": "SILVER"
+        "GOLD (Złoto)": {"tv": "OANDA:XAUUSD", "te": "xauusd:cur"},
+        "SILVER (Srebro)": {"tv": "OANDA:XAGUSD", "te": "xagusd:cur"},
+        "OIL.WTI (Ropa)": {"tv": "TVC:USOIL", "te": "cl1:com"},
+        "NATGAS (Gaz)": {"tv": "TVC:NATGAS", "te": "ng1:com"}
     },
     "INDEKSY": {
-        "US100 (Nasdaq)": "IXIC",
-        "DE30 (DAX)": "GER30",
-        "US500 (S&P500)": "SP500",
-        "WIG20 (Polska)": "WIG20"
+        "US100 (Nasdaq)": {"tv": "NASDAQ:IXIC", "te": "ndx:ind"},
+        "US500 (S&P500)": {"tv": "TVC:SPX", "te": "spx:ind"},
+        "DE30 (DAX)": {"tv": "GLOBALPRIME:GER30", "te": "dax:ind"}
     },
     "FOREX": {
-        "EURUSD": "EURUSD",
-        "USDPLN": "USDPLN",
-        "EURPLN": "EURPLN"
+        "EURUSD": {"tv": "FX:EURUSD", "te": "eurusd:cur"},
+        "USDPLN": {"tv": "OANDA:USDPLN", "te": "usdpln:cur"},
+        "GBPUSD": {"tv": "FX:GBPUSD", "te": "gbpusd:cur"}
     },
     "KRYPTO": {
-        "BITCOIN": "BTCUSDT",
-        "ETHEREUM": "ETHUSDT"
+        "BITCOIN": {"tv": "BINANCE:BTCUSDT", "te": "btcusd:cur"},
+        "ETHEREUM": {"tv": "BINANCE:ETHUSDT", "te": "ethusd:cur"}
     }
 }
 
@@ -49,94 +47,75 @@ def main():
         st.info("### 🚀 REKOMENDACJA\nHandluj na XTB bez prowizji!")
         st.markdown("[👉 Otwórz Darmowe Konto](https://www.xtb.com/pl)") 
         st.markdown("---")
-        st.warning("### ☕ WSPARCIE")
-        st.markdown("[Postaw kawę](https://buycoffee.to/twoj_nick)")
-        st.caption("Wersja: V34 PRO | Dual-Engine Analysis")
+        st.caption("Wersja: V35 | Dual-Signal Independence")
 
-    # --- MENU GŁÓWNE ---
-    tab1, tab2, tab3 = st.tabs(["📊 Terminal Analityczny", "📅 Kalendarz Ekonomiczny", "🗺️ Mapa Rynku"])
+    # --- PANEL WYBORU ---
+    c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
+    with c1: rynek = st.selectbox("Wybierz rynek:", list(DB.keys()))
+    with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()))
+    with c3: itv = st.selectbox("Interwał:", ["1", "5", "15", "60", "D"], index=1)
+    with c4: audio = st.checkbox("Dźwięk", value=True)
 
-    with tab1:
-        c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
-        with c1: rynek = st.selectbox("Rynek:", list(DB.keys()), index=0)
-        with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()), index=0)
-        with c3: itv = st.selectbox("Interwał:", ["1", "5", "15", "60", "D"], index=1)
-        with c4: audio = st.checkbox("Dźwięk", value=True)
+    tv_symbol = DB[rynek][inst]["tv"]
+    te_symbol = DB[rynek][inst]["te"]
+    tv_interval = f"{itv}" if itv != "D" else "1D"
 
-        # Logika symboli
-        symbol = DB[rynek][inst]
-        full_symbol = f"OANDA:{symbol}" if rynek in ["FOREX", "SUROWCE"] else f"TVC:{symbol}"
-        if rynek == "KRYPTO": full_symbol = f"BINANCE:{symbol}"
-        
-        tv_interval = f"{itv}" if itv != "D" else "1D"
+    st.subheader(f"🛡️ Porównanie Sygnałów: {inst}")
+    
+    col_sig1, col_sig2 = st.columns(2)
 
-        st.subheader(f"🛡️ Strategia Dual-Signal dla {inst}")
-        col_sig1, col_sig2 = st.columns(2)
-
-        with col_sig1:
-            st.markdown("<p style='text-align:center; color:#83888D;'>Sygnał 1: Trend i Dynamika Ceny</p>", unsafe_allow_html=True)
-            # Widżet 1: Mini Chart (Inne źródło wizualne sygnału)
-            tech_mini = f"""
-            <div style="height: 450px;">
-              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-              {{
-              "symbol": "{full_symbol}",
-              "width": "100%", "height": 450,
-              "locale": "pl", "dateRange": "12M",
-              "colorTheme": "dark", "isTransparent": true,
-              "autosize": false, "largeChartUrl": ""
-              }}
-              </script>
-            </div>
-            """
-            components.html(tech_mini, height=470)
-
-        with col_sig2:
-            st.markdown("<p style='text-align:center; color:#00FFA2;'>Sygnał 2: Szczegółowa Analiza Techniczna</p>", unsafe_allow_html=True)
-            # Widżet 2: Ten, który Ci się podobał (Multiple) - TERAZ DYNAMICZNY
-            tech_tv_main = f"""
-            <div style="height: 450px;">
-              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-              {{
-              "interval": "{tv_interval if tv_interval == '1D' else tv_interval+'m'}",
-              "width": "100%", "height": 450,
-              "isTransparent": true, 
-              "symbol": "{full_symbol}",
-              "showIntervalTabs": true, "displayMode": "multiple",
-              "locale": "pl", "colorTheme": "dark"
-            }}
-              </script>
-            </div>
-            """
-            components.html(tech_tv_main, height=470)
-
-        # --- WYKRES NA DOLE (NAPRAWIONY) ---
-        st.markdown("---")
-        chart_code = f"""
-        <div id="tv_chart_container" style="height: 600px;"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-        new TradingView.widget({{
-          "width": "100%", "height": 600,
-          "symbol": "{full_symbol}", 
-          "interval": "{itv}",
-          "timezone": "Europe/Warsaw", "theme": "dark", "style": "1",
-          "locale": "pl", "enable_publishing": false,
-          "hide_side_toolbar": false, "allow_symbol_change": true,
-          "container_id": "tv_chart_container"
-        }});
-        </script>
+    with col_sig1:
+        # SYGNAŁ 1: TRADING ECONOMICS (Niezależne źródło)
+        st.markdown("<p style='text-align:center; color:#5DADE2;'>ŹRÓDŁO 1: TRADING ECONOMICS (Analiza Wskaźnikowa)</p>", unsafe_allow_html=True)
+        # Widget Trading Economics pokazuje sentyment i statystyki techniczne
+        te_widget = f"""
+        <iframe src="https://it.tradingeconomics.com/embed/?s={te_symbol.split(':')[0]}&d1=20240101&h=450&w=100%" 
+        width="100%" height="450" frameborder="0" scrolling="no"></iframe>
         """
-        components.html(chart_code, height=620)
+        components.html(te_widget, height=470)
 
-    # Pozostałe zakładki bez zmian
-    with tab2:
-        components.html('<iframe src="https://sslecal2.investing.com?importance=2,3&countries=25,32,6,37,7,5&calType=day&timeZone=58&lang=51" width="100%" height="800" frameborder="0"></iframe>', height=820)
-    with tab3:
-        components.html('<iframe src="https://s.tradingview.com/embed-widget/crypto-mcap/?locale=pl#%7B%22colorTheme%22%3A%22dark%22%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22600%22%7D" width="100%" height="600" frameborder="0"></iframe>', height=620)
+    with col_sig2:
+        # SYGNAŁ 2: TRADING VIEW (Twój ulubiony zegar z detalami)
+        st.markdown("<p style='text-align:center; color:#00FFA2;'>ŹRÓDŁO 2: TRADING VIEW (Agregat Techniczny)</p>", unsafe_allow_html=True)
+        tech_tv = f"""
+        <div style="height: 450px;">
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+          {{
+          "interval": "{tv_interval if tv_interval == '1D' else tv_interval+'m'}",
+          "width": "100%", "height": 450,
+          "isTransparent": true, 
+          "symbol": "{tv_symbol}",
+          "showIntervalTabs": true, "displayMode": "multiple",
+          "locale": "pl", "colorTheme": "dark"
+        }}
+          </script>
+        </div>
+        """
+        components.html(tech_tv, height=470)
 
+    # --- WYKRES DOLNY (ŚWIECZKI) ---
+    st.markdown("---")
+    st.markdown(f"**Wykres Interaktywny: {inst}**")
+    chart_code = f"""
+    <div id="tv_chart_container" style="height: 600px;"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    new TradingView.widget({{
+      "width": "100%", "height": 600,
+      "symbol": "{tv_symbol}", 
+      "interval": "{itv}",
+      "timezone": "Europe/Warsaw", "theme": "dark", "style": "1",
+      "locale": "pl", "toolbar_bg": "#f1f3f6",
+      "enable_publishing": false, "hide_side_toolbar": false,
+      "allow_symbol_change": true, "container_id": "tv_chart_container"
+    }});
+    </script>
+    """
+    components.html(chart_code, height=620)
+
+    # Logika Audio Alertu
     if audio:
-        audio_js = """<script>setInterval(() => {if (document.body.innerText.includes('Kupno')) {const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.1);}}, 30000);</script>"""
+        audio_js = """<script>setInterval(() => {if (document.body.innerText.includes('Kupno') || document.body.innerText.includes('Strong Buy')) {const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.1);}}, 30000);</script>"""
         components.html(audio_js, height=0)
 
 if __name__ == "__main__":
