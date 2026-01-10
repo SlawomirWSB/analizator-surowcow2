@@ -1,9 +1,9 @@
 import streamlit as st
 
 # 1. Konfiguracja strony
-st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V56", page_icon="🎯")
+st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V57", page_icon="🎯")
 
-# 2. Stylizacja CSS dla kart i agregatów
+# 2. Stylizacja CSS
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
@@ -12,12 +12,9 @@ st.markdown("""
         border-radius: 10px;
         padding: 15px;
         border-left: 5px solid #3d4451;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
         color: white;
-        cursor: pointer;
-        transition: 0.3s;
     }
-    .signal-card:hover { background-color: #2a2e39; border-left-width: 8px; }
     .buy { border-left-color: #00ff88 !important; }
     .sell { border-left-color: #ff4b4b !important; }
     .aggregator-box {
@@ -25,26 +22,39 @@ st.markdown("""
         border: 1px solid #2a2e39;
         border-radius: 10px;
         padding: 20px;
-        min-height: 600px;
     }
     .status-tag { padding: 5px 10px; border-radius: 5px; font-weight: bold; }
     .tag-buy { background-color: rgba(0, 255, 136, 0.2); color: #00ff88; }
     .tag-sell { background-color: rgba(255, 75, 75, 0.2); color: #ff4b4b; }
+    .update-time { color: #f39c12; font-weight: bold; font-size: 0.9rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Baza danych sygnałów i weryfikacji (Dane z 10 Stycznia 2026)
+# 3. Rozszerzona baza danych o godziny aktualizacji
 DATA = {
+    "GOLD": {
+        "source": "VasilyTrader",
+        "type": "BUY",
+        "price": "4509.66",
+        "tp": "4525.00",
+        "sl": "4495.00",
+        "updated": "10.01.2026 15:30", # Przybliżona godzina z wykresu
+        "note": "Odbicie od psychologicznego poziomu 4500.",
+        "link": "https://t.me/s/VasilyTrading",
+        "investing": {"verdict": "STRONG SELL", "summary": "Wskaźniki: Sell (5) / Buy (2)"},
+        "tradingview": {"verdict": "STRONG BUY", "summary": "Średnie kroczące: Silne Kupno (13)"}
+    },
     "GBP/CHF": {
         "source": "SignalProvider",
         "type": "SELL",
         "price": "1.073",
         "tp": "1.071",
         "sl": "1.075",
-        "note": "Rynek testuje opór horyzontalny. Spodziewany spadek.",
+        "updated": "10.01.2026 12:20", # Dokładna godzina z Twojego screena
+        "note": "Rynek testuje opór horyzontalny.",
         "link": "https://t.me/s/signalsproviderfx/410",
-        "investing": {"verdict": "SELL", "summary": "Indicators: Sell (5) / Buy (1)"},
-        "tradingview": {"verdict": "NEUTRAL", "summary": "Moving Averages: Sell (7) / Buy (5)"}
+        "investing": {"verdict": "SELL", "summary": "Wskaźniki: Sell (5) / Buy (1)"},
+        "tradingview": {"verdict": "NEUTRAL", "summary": "Podsumowanie: Neutralne (7)"}
     },
     "CAD/JPY": {
         "source": "ProSignalsFx",
@@ -52,108 +62,92 @@ DATA = {
         "price": "113.85",
         "tp": "114.50",
         "sl": "113.30",
-        "note": "Wybicie z formacji trójkąta (kompresja). Silny pęd wzrostowy.",
+        "updated": "10.01.2026 06:47", # Godzina widoczna na Twoim screenie CADJPY
+        "note": "Wybicie z formacji trójkąta.",
         "link": "https://t.me/s/prosignalsfxx",
-        "investing": {"verdict": "STRONG BUY", "summary": "Indicators: Buy (8) / Sell (0)"},
-        "tradingview": {"verdict": "BUY", "summary": "Moving Averages: Buy (12) / Sell (2)"}
-    },
-    "GOLD": {
-        "source": "VasilyTrader",
-        "type": "BUY",
-        "price": "4509.66",
-        "tp": "4525.00",
-        "sl": "4495.00",
-        "note": "Odbicie od psychologicznego poziomu 4500.",
-        "link": "https://t.me/s/VasilyTrading",
-        "investing": {"verdict": "STRONG SELL", "summary": "Wskaźniki: Sell (5) / Buy (2)"},
-        "tradingview": {"verdict": "STRONG BUY", "summary": "Średnie kroczące: Silne Kupno (13)"}
+        "investing": {"verdict": "STRONG BUY", "summary": "Wskaźniki: Buy (8)"},
+        "tradingview": {"verdict": "BUY", "summary": "Średnie: Silne Kupno (12)"}
     }
 }
 
 def main():
     st.title("🎯 Terminal: Agregator Sygnałów (10.01.2026)")
 
-    # Inicjalizacja stanu wyboru
-    if 'selected_pair' not in st.session_state:
-        st.session_state.selected_pair = "GOLD"
+    # Ustawienie domyślnego wyboru, jeśli nie istnieje
+    if 'active_pair' not in st.session_state:
+        st.session_state.active_pair = "GOLD"
 
     col_feed, col_agg = st.columns([1, 1.2])
 
-    # --- PANEL LEWY: LISTA SYGNAŁÓW ---
+    # --- PANEL LEWY ---
     with col_feed:
-        st.subheader("📡 Sygnały Live (Kliknij, aby zweryfikować)")
-        
+        st.subheader("📡 Sygnały Live")
         for pair, info in DATA.items():
-            card_class = "buy" if info["type"] == "BUY" else "sell"
-            if st.button(f"🔍 WERYFIKUJ: {pair} ({info['source']})", use_container_width=True):
-                st.session_state.selected_pair = pair
+            card_style = "buy" if info["type"] == "BUY" else "sell"
             
-            st.markdown(f"""
-                <div class="signal-card {card_class}">
-                    <b>{pair}</b> | {info['source']}<br>
-                    <small>Kierunek: {info['type']} @ {info['price']}</small>
-                </div>
-            """, unsafe_allow_html=True)
+            # Kontener karty
+            with st.container():
+                st.markdown(f"""<div class="signal-card {card_style}">
+                    <b style="font-size: 1.1rem;">{pair}</b> | {info['source']}
+                </div>""", unsafe_allow_html=True)
+                
+                # Przycisk weryfikacji (aktualizuje session_state)
+                if st.button(f"🔍 Weryfikuj {pair}", key=f"btn_{pair}", use_container_width=True):
+                    st.session_state.active_pair = pair
+                    st.rerun() # Wymuszenie odświeżenia widoku
 
-    # --- PANEL PRAWY: AGREGATOR SYGNAŁÓW (Dynamiczny) ---
+    # --- PANEL PRAWY ---
     with col_agg:
-        pair = st.session_state.selected_pair
-        info = DATA[pair]
+        selection = st.session_state.active_pair
+        item = DATA[selection]
         
-        st.subheader(f"📊 Agregator Sygnałów: {pair}")
+        st.subheader(f"📊 Agregator: {selection}")
         
-        with st.container():
-            st.markdown(f"""<div class="aggregator-box">""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="aggregator-box">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Instrument: {selection}</h3>
+                <span class="update-time">🕒 Ostatnia aktualizacja: {item['updated']}</span>
+            </div>
+            <p><b>Źródło pierwotne:</b> {item['source']} | <a href="{item['link']}" style="color:#37a6ef">Oryginalny wpis</a></p>
+        """, unsafe_allow_html=True)
+        
+        # Metryki
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Wejście", item['price'])
+        m2.metric("TP", item['tp'])
+        m3.metric("SL", item['sl'])
+        
+        st.divider()
+        st.write("🔍 **Triple-Source Verification Results:**")
+        
+        v1, v2 = st.columns(2)
+        with v1:
+            v_color = "tag-buy" if "BUY" in item['investing']['verdict'] else "tag-sell"
+            st.markdown(f"""<div style="background: #1e222d; padding: 15px; border-radius: 8px;">
+                <b>🔴 Investing.com</b><br>
+                Werdykt: <span class="status-tag {v_color}">{item['investing']['verdict']}</span><br>
+                <small>{item['investing']['summary']}</small>
+            </div>""", unsafe_allow_html=True)
             
-            # 1. Nagłówek i Główne Info
-            st.markdown(f"### Instrument: {pair}")
-            st.markdown(f"**Źródło pierwotne:** {info['source']} | [Oryginalny wpis]({info['link']})")
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Cena Wejścia", info['price'])
-            c2.metric("Take Profit", info['tp'], delta_color="normal")
-            c3.metric("Stop Loss", info['sl'], delta_color="inverse")
-            
-            st.divider()
+        with v2:
+            v_color = "tag-buy" if "BUY" in item['tradingview']['verdict'] else "tag-sell"
+            st.markdown(f"""<div style="background: #1e222d; padding: 15px; border-radius: 8px;">
+                <b>🟢 TradingView Zegary</b><br>
+                Werdykt: <span class="status-tag {v_color}">{item['tradingview']['verdict']}</span><br>
+                <small>{item['tradingview']['summary']}</small>
+            </div>""", unsafe_allow_html=True)
 
-            # 2. Weryfikacja z wielu źródeł (Investing vs TradingView)
-            st.write("🔍 **Triple-Source Verification Results:**")
-            
-            v_col1, v_col2 = st.columns(2)
-            
-            # Źródło: Investing
-            with v_col1:
-                v_class = "tag-buy" if "BUY" in info['investing']['verdict'] else "tag-sell"
-                st.markdown(f"""
-                    <div style="background: #1e222d; padding: 15px; border-radius: 8px;">
-                        <b>🔴 Źródło: Investing.com</b><br>
-                        Werdykt: <span class="status-tag {v_class}">{info['investing']['verdict']}</span><br>
-                        <small>{info['investing']['summary']}</small>
-                    </div>
-                """, unsafe_allow_html=True)
+        st.divider()
+        # Werdykt automatyczny
+        if "BUY" in item['investing']['verdict'] and "BUY" in item['tradingview']['verdict']:
+            st.success(f"✅ **ZGODNOŚĆ (KUPNO):** Obie analizy techniczne potwierdzają kierunek {item['source']}.")
+        elif "SELL" in item['investing']['verdict'] and "SELL" in item['tradingview']['verdict']:
+            st.error(f"🚨 **ZGODNOŚĆ (SPRZEDAŻ):** Obie analizy techniczne potwierdzają kierunek {item['source']}.")
+        else:
+            st.warning("⚠️ **ROZBIEŻNOŚĆ:** Investing i TradingView mają sprzeczne sygnały. Zalecana ostrożność.")
 
-            # Źródło: TradingView
-            with v_col2:
-                v_class = "tag-buy" if "BUY" in info['tradingview']['verdict'] else "tag-sell"
-                st.markdown(f"""
-                    <div style="background: #1e222d; padding: 15px; border-radius: 8px;">
-                        <b>🟢 Źródło: TradingView (Zegary)</b><br>
-                        Werdykt: <span class="status-tag {v_class}">{info['tradingview']['verdict']}</span><br>
-                        <small>{info['tradingview']['summary']}</small>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            # 3. Werdykt Systemowy
-            st.divider()
-            if "BUY" in info['investing']['verdict'] and "BUY" in info['tradingview']['verdict']:
-                st.success("✅ **ZGODNOŚĆ SYGNAŁÓW (BUY):** Wszystkie źródła potwierdzają wzrosty. Można rozważyć wejście.")
-            elif "SELL" in info['investing']['verdict'] and "SELL" in info['tradingview']['verdict']:
-                st.error("🚨 **ZGODNOŚĆ SYGNAŁÓW (SELL):** Wszystkie źródła potwierdzają spadki. Można rozważyć krótką pozycję.")
-            else:
-                st.warning("⚠️ **ROZBIEŻNOŚĆ SYGNAŁÓW:** Źródła podają sprzeczne informacje. Zalecana ostrożność lub czekanie na ujednolicenie trendu.")
-            
-            st.markdown(f"*Notatka tradera: {info['note']}*")
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.info(f"📝 **Notatka:** {item['note']}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
