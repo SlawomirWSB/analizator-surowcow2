@@ -1,13 +1,14 @@
 import streamlit as st
 
 # 1. Konfiguracja strony
-st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V58", page_icon="🎯")
+st.set_page_config(layout="wide", page_title="XTB SIGNAL HUB V59", page_icon="🎯")
 
-# 2. Stylizacja CSS
+# 2. Stylizacja CSS dla lepszej czytelności
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
-    /* Styl karty po lewej */
+    
+    /* Lewy Panel - Karty Sygnałów */
     .signal-card {
         background-color: #1e222d;
         border-radius: 10px;
@@ -23,34 +24,59 @@ st.markdown("""
         color: #f39c12; 
         font-weight: bold; 
         font-size: 0.85rem; 
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         display: block;
     }
     
     .price-details {
-        background: rgba(255,255,255,0.05);
-        padding: 10px;
-        border-radius: 5px;
-        margin: 10px 0;
+        background: rgba(255,255,255,0.07);
+        padding: 12px;
+        border-radius: 8px;
+        margin: 12px 0;
         font-family: 'Courier New', monospace;
+        font-size: 1.05rem;
     }
 
-    /* Styl agregatora po prawej */
+    /* Prawy Panel - Agregator */
     .aggregator-container {
         background-color: #131722;
         border: 1px solid #2a2e39;
-        border-radius: 10px;
-        padding: 25px;
+        border-radius: 12px;
+        padding: 30px;
         position: sticky;
         top: 20px;
     }
-    .status-tag { padding: 5px 12px; border-radius: 5px; font-weight: bold; }
-    .tag-buy { background-color: rgba(0, 255, 136, 0.2); color: #00ff88; }
-    .tag-sell { background-color: rgba(255, 75, 75, 0.2); color: #ff4b4b; }
+    
+    .verdict-box {
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-top: 10px;
+    }
+    
+    .status-large { 
+        display: block;
+        font-size: 1.8rem; 
+        font-weight: 900; 
+        margin-top: 5px;
+    }
+
+    .btn-telegram {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #0088cc;
+        color: white !important;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        margin-top: 15px;
+        text-align: center;
+        width: 100%;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Baza danych (Dane z Twoich zrzutów ekranu)
+# 3. Baza danych (Dane z Twoich zrzutów ekranu - Jan 10)
 DATA = {
     "GOLD": {
         "source": "VasilyTrader",
@@ -61,8 +87,8 @@ DATA = {
         "updated": "10.01.2026 15:30",
         "note": "Odbicie od poziomu 4500.",
         "link": "https://t.me/s/VasilyTrading",
-        "investing": {"verdict": "STRONG SELL", "summary": "Wskaźniki: Sell (5) / Buy (2)"},
-        "tradingview": {"verdict": "STRONG BUY", "summary": "Średnie kroczące: Silne Kupno (13)"}
+        "investing": {"verdict": "STRONG SELL", "color": "#ff4b4b", "summary": "Wskaźniki: Sell (5) / Buy (2)"},
+        "tradingview": {"verdict": "STRONG BUY", "color": "#00ff88", "summary": "Średnie kroczące: Silne Kupno (13)"}
     },
     "GBP/CHF": {
         "source": "SignalProvider",
@@ -73,8 +99,8 @@ DATA = {
         "updated": "10.01.2026 12:20",
         "note": "Testowanie oporu 1.073.",
         "link": "https://t.me/s/signalsproviderfx/410",
-        "investing": {"verdict": "SELL", "summary": "Wskaźniki: Sell (5) / Buy (1)"},
-        "tradingview": {"verdict": "NEUTRAL", "summary": "Podsumowanie: Neutralne (7)"}
+        "investing": {"verdict": "SELL", "color": "#ff4b4b", "summary": "Wskaźniki: Sell (5) / Buy (1)"},
+        "tradingview": {"verdict": "NEUTRAL", "color": "#8f94a1", "summary": "Podsumowanie: Neutralne (7)"}
     },
     "CAD/JPY": {
         "source": "ProSignalsFx",
@@ -85,13 +111,13 @@ DATA = {
         "updated": "10.01.2026 06:47",
         "note": "Wybicie z formacji trójkąta.",
         "link": "https://t.me/s/prosignalsfxx",
-        "investing": {"verdict": "STRONG BUY", "summary": "Wskaźniki: Buy (8)"},
-        "tradingview": {"verdict": "BUY", "summary": "Średnie: Silne Kupno (12)"}
+        "investing": {"verdict": "STRONG BUY", "color": "#00ff88", "summary": "Wskaźniki: Buy (8)"},
+        "tradingview": {"verdict": "BUY", "color": "#00ff88", "summary": "Średnie: Silne Kupno (12)"}
     }
 }
 
 def main():
-    st.title("🎯 Terminal Sygnałowy V58 (10.01.2026)")
+    st.title("🎯 Terminal Sygnałowy V59 (Jan 10, 2026)")
 
     if 'active_pair' not in st.session_state:
         st.session_state.active_pair = "GOLD"
@@ -100,19 +126,18 @@ def main():
 
     # --- PANEL LEWY: PEŁNE DANE SYGNAŁÓW ---
     with col_left:
-        st.subheader("📩 Aktywne Sygnały (Pełne Dane)")
+        st.subheader("📩 Sygnały Live (Telegram)")
         
         for pair, info in DATA.items():
-            card_color = "buy" if info["type"] == "BUY" else "sell"
-            type_icon = "🟢 KUPNO" if info["type"] == "BUY" else "🔴 SPRZEDAŻ"
+            card_class = "buy" if info["type"] == "BUY" else "sell"
+            type_label = "🟢 KUPNO" if info["type"] == "BUY" else "🔴 SPRZEDAŻ"
             
-            # Renderowanie karty po lewej ze wszystkimi danymi
             st.markdown(f"""
-                <div class="signal-card {card_color}">
-                    <span class="update-tag">🕒 Ostatnia aktualizacja: {info['updated']}</span>
+                <div class="signal-card {card_class}">
+                    <span class="update-tag">🕒 Aktualizacja: {info['updated']}</span>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3 style="margin:0;">{pair}</h3>
-                        <b style="color: {'#00ff88' if info['type'] == 'BUY' else '#ff4b4b'}">{type_icon}</b>
+                        <b style="color: {'#00ff88' if info['type'] == 'BUY' else '#ff4b4b'}">{type_label}</b>
                     </div>
                     <p style="margin: 5px 0;">Źródło: <b>{info['source']}</b></p>
                     <div class="price-details">
@@ -124,53 +149,64 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
             
-            # Przycisk weryfikacji pod każdą kartą
-            if st.button(f"🔎 Weryfikuj {pair} w Agregatorze", key=f"btn_{pair}", use_container_width=True):
+            if st.button(f"🔎 Analizuj {pair}", key=f"btn_{pair}", use_container_width=True):
                 st.session_state.active_pair = pair
                 st.rerun()
 
-    # --- PANEL PRAWY: AGREGATOR WERYFIKACYJNY ---
+    # --- PANEL PRAWY: POPRAWIONY AGREGATOR ---
     with col_right:
-        selection = st.session_state.active_pair
-        item = DATA[selection]
+        item = DATA[st.session_state.active_pair]
         
-        st.subheader(f"📊 Agregator Weryfikacyjny: {selection}")
+        st.subheader(f"📊 Agregator Weryfikacyjny: {st.session_state.active_pair}")
         
         st.markdown(f"""<div class="aggregator-container">
-            <h3>Analiza Wielostronna dla {selection}</h3>
-            <p>Porównanie sygnału <b>{item['source']}</b> z danymi rynkowymi.</p>
-            <hr style="border-color: #2a2e39;">
+            <h2 style="margin-bottom:0;">{st.session_state.active_pair}</h2>
+            <p style="color:#8f94a1;">Weryfikacja techniczna dla sygnału od <b>{item['source']}</b></p>
+            <hr style="border-color: #2a2e39; margin: 20px 0;">
         """, unsafe_allow_html=True)
         
-        # Investing vs TradingView
-        v1, v2 = st.columns(2)
-        with v1:
-            v_color = "tag-buy" if "BUY" in item['investing']['verdict'] else "tag-sell"
-            st.markdown(f"""<div style="background: #1e222d; padding: 15px; border-radius: 8px; min-height: 120px;">
-                <b>🔴 Investing.com</b><br>
-                Werdykt: <span class="status-tag {v_color}">{item['investing']['verdict']}</span><br><br>
-                <small>{item['investing']['summary']}</small>
-            </div>""", unsafe_allow_html=True)
-            
-        with v2:
-            v_color = "tag-buy" if "BUY" in item['tradingview']['verdict'] else "tag-sell"
-            st.markdown(f"""<div style="background: #1e222d; padding: 15px; border-radius: 8px; min-height: 120px;">
-                <b>🟢 TradingView Zegary</b><br>
-                Werdykt: <span class="status-tag {v_color}">{item['tradingview']['verdict']}</span><br><br>
-                <small>{item['tradingview']['summary']}</small>
-            </div>""", unsafe_allow_html=True)
-
-        st.divider()
+        # Sekcja werdyktów (Investing i TradingView)
+        v_col1, v_col2 = st.columns(2)
         
-        # Logika Werdyktu Końcowego
-        if "BUY" in item['investing']['verdict'] and "BUY" in item['tradingview']['verdict']:
-            st.success(f"✅ **ZGODNOŚĆ:** Wszystkie systemy potwierdzają KUPNO {selection}.")
-        elif "SELL" in item['investing']['verdict'] and "SELL" in item['tradingview']['verdict']:
-            st.error(f"🚨 **ZGODNOŚĆ:** Wszystkie systemy potwierdzają SPRZEDAŻ {selection}.")
-        else:
-            st.warning("⚠️ **ROZBIEŻNOŚĆ:** Brak jednoznacznego potwierdzenia trendu.")
+        with v_col1:
+            st.markdown(f"""
+                <div style="background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #2a2e39;">
+                    <b style="color:#ff4b4b;">🔴 Investing.com</b><br>
+                    <span class="status-large" style="color:{item['investing']['color']}">{item['investing']['verdict']}</span>
+                    <hr style="border-color: #2a2e39; margin: 10px 0;">
+                    <small style="color:#8f94a1;">{item['investing']['summary']}</small>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with v_col2:
+            st.markdown(f"""
+                <div style="background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #2a2e39;">
+                    <b style="color:#00ff88;">🟢 TradingView</b><br>
+                    <span class="status-large" style="color:{item['tradingview']['color']}">{item['tradingview']['verdict']}</span>
+                    <hr style="border-color: #2a2e39; margin: 10px 0;">
+                    <small style="color:#8f94a1;">{item['tradingview']['summary']}</small>
+                </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown(f"""<br><a href="{item['link']}" target="_blank" style="color:#37a6ef; text-decoration:none;">🔗 Otwórz oryginalny wpis na Telegramie</a>""", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Werdykt Zbiorczy
+        if "BUY" in item['investing']['verdict'] and "BUY" in item['tradingview']['verdict']:
+            st.success("✅ **PEŁNA ZGODNOŚĆ:** Wszystkie systemy potwierdzają kierunek wzrostowy.")
+        elif "SELL" in item['investing']['verdict'] and "SELL" in item['tradingview']['verdict']:
+            st.error("🚨 **PEŁNA ZGODNOŚĆ:** Wszystkie systemy potwierdzają kierunek spadkowy.")
+        else:
+            st.warning("⚠️ **ROZBIEŻNOŚĆ:** Systemy techniczne nie są zgodne. Zachowaj ostrożność.")
+
+        # Przycisk do oryginalnej treści
+        st.markdown(f"""
+            <hr style="border-color: #2a2e39; margin: 25px 0;">
+            <b>Weryfikacja źródła:</b>
+            <a href="{item['link']}" target="_blank" class="btn-telegram">
+                ✈️ Otwórz oryginalny sygnał na Telegramie
+            </a>
+        """, unsafe_allow_html=True)
+        
         st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
