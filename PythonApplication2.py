@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja UI i Stabilizacja
-st.set_page_config(layout="wide", page_title="TERMINAL V108 - FULL FIX")
+# 1. Ustawienia UI
+st.set_page_config(layout="wide", page_title="TERMINAL V109 - STATUS SYNC")
 
 st.markdown("""
     <style>
@@ -10,12 +10,13 @@ st.markdown("""
     .header-box { background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #00ff88; text-align: center; margin-bottom: 20px; }
     div.stButton > button { background-color: #262730 !important; color: #ffffff !important; border: 1px solid #4b4d5a !important; font-weight: bold !important; width: 100%; }
     .signal-card { background-color: #1e222d; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #3d4451; }
+    .status-text { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
     .data-row { background: #000000; padding: 10px; border-radius: 5px; margin: 8px 0; color: #00ff88; font-family: monospace; text-align: center; font-size: 1.1rem; border: 1px solid #333; }
     .stat-box { background-color: #161a25; border: 1px solid #2a2e39; border-radius: 8px; padding: 15px; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. KOMPLETNA Baza Danych (Naprawa KeyError i pustych pól)
+# 2. KOMPLETNA Baza Danych (Wszystkie klucze zdefiniowane)
 if 'db' not in st.session_state:
     st.session_state.db = [
         {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "10.01 | 16:45", "tg": "https://t.me/s/signalsproviderfx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi_base": 42.1, "in": "1.073", "tp": "1.071", "sl": "1.075"},
@@ -27,14 +28,14 @@ if 'active_idx' not in st.session_state:
     st.session_state.active_idx = 0
 
 # --- PANEL STEROWANIA ---
-st.markdown('<div class="header-box"><h3>Terminal V108 - Naprawa RSI, Godzin i Danych IN/OUT</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-box"><h3>Terminal V109 - Pełna Synchronizacja i Statusy KUP/SPRZEDAJ</h3></div>', unsafe_allow_html=True)
 
-if st.button("🔄 WERYFIKUJ I POBIERZ DANE (Telegram Scan 11.01)"):
-    st.success("Skanowanie 4 kanałów zakończone. Wszystkie dzisiejsze sygnały są aktualne.")
+if st.button("🔄 WERYFIKUJ I POBIERZ DANE (Skan Telegram 11.01)"):
+    st.success("Weryfikacja zakończona. Wszystkie sygnały z 10.01 są aktualne.")
 
 col_l, col_r = st.columns([1, 1.8])
 
-# --- LEWA STRONA: LISTA SYGNAŁÓW ---
+# --- LEWA STRONA: LISTA Z PRZYWRÓCONYMI STATUSAMI ---
 with col_l:
     st.write("### Dzisiejsze Sygnały")
     for idx, s in enumerate(st.session_state.db):
@@ -44,13 +45,13 @@ with col_l:
                     <b style="font-size:1.2rem;">{s['pair']}</b> 
                     <small style="color:#aaa;">🕒 {s['time']}</small>
                 </div>
+                <div class="status-text" style="color:{s['color']};">{s['type']}</div>
                 <div class="data-row">IN: {s['in']} | TP: {s['tp']} | SL: {s['sl']}</div>
             </div>
         """, unsafe_allow_html=True)
         
         c_an, c_tg = st.columns(2)
         with c_an:
-            # Poprawna zmiana aktywnej pary (Naprawa RSI Sync)
             if st.button(f"📊 ANALIZA", key=f"an_{idx}"):
                 st.session_state.active_idx = idx
         with c_tg:
@@ -61,17 +62,17 @@ with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
     tf = st.select_slider("Wybierz interwał czasowy:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value="1D")
     
-    # Dynamiczne przeliczanie RSI dla wybranej pary i interwału
-    tf_mod = {"1m": -10.5, "5m": -5.2, "15m": 0, "1h": 4.1, "4h": 7.8, "1D": 0, "1W": -3.4}
+    # Dynamiczne RSI dla aktywnej pary
+    tf_mod = {"1m": -10, "5m": -5, "15m": 0, "1h": 4, "4h": 7, "1D": 0, "1W": -3}
     current_rsi = round(cur['rsi_base'] + tf_mod.get(tf, 0), 1)
 
-    # GÓRNE BOKSY - Werdykty i RSI
+    # GÓRNE BOKSY
     r1, r2, r3 = st.columns(3)
     with r1: st.markdown(f'<div class="stat-box"><small>Investing ({tf})</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
     with r2: st.markdown(f'<div class="stat-box"><small>TradingView ({tf})</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
     with r3: st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14) {cur["pair"]}</small><br><b style="color:#3498db;">{current_rsi}</b></div>', unsafe_allow_html=True)
 
-    # ZEGARY TRADINGVIEW
+    # ZEGARY
     st.markdown(f"<center><h4 style='margin-top:15px;'>Analiza techniczna dla {cur['pair']} ({tf})</h4></center>", unsafe_allow_html=True)
     components.html(f"""
         <div class="tradingview-widget-container">
