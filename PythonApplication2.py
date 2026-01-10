@@ -1,28 +1,40 @@
 import streamlit as st
 
 # 1. Konfiguracja i Stylizacja
-st.set_page_config(layout="wide", page_title="XTB HUB V71 - Ultimate", page_icon="📈")
+st.set_page_config(layout="wide", page_title="XTB HUB V72 - Pro", page_icon="📈")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Przyciski - Naprawa widoczności (Zawsze białe) */
+    /* Przyciski główne - Zawsze białe napisy */
     div.stButton > button {
         color: #ffffff !important;
         background-color: #2a2e39 !important;
         border: 1px solid #3d4451 !important;
         font-weight: bold !important;
         width: 100%;
+        margin-bottom: 5px;
     }
     div.stButton > button:hover { border-color: #00ff88 !important; background-color: #3d4451 !important; }
+
+    /* Przyciski Linków po lewej - Stylizacja */
+    .stLinkButton > a {
+        background-color: #1e222d !important;
+        color: #3498db !important;
+        border: 1px solid #3498db !important;
+        font-size: 0.8rem !important;
+        font-weight: normal !important;
+        padding: 5px !important;
+        text-align: center;
+    }
 
     /* Karty i Agregatory */
     .signal-card {
         background-color: #1e222d;
         border-radius: 12px;
         padding: 15px;
-        margin-bottom: 15px;
+        margin-bottom: 5px;
         border-left: 5px solid #3d4451;
     }
     .aggregator-card {
@@ -46,7 +58,6 @@ st.markdown("""
     .gauge-neutral { background: #f39c12; height: 100%; }
     .gauge-buy { background: #00ff88; height: 100%; }
     
-    /* Stylizacja Zegarów */
     .mini-gauge {
         text-align: center;
         padding: 10px;
@@ -91,16 +102,17 @@ def render_mini_gauge(title, verdict, color):
     """, unsafe_allow_html=True)
 
 def main():
-    st.markdown('<h2 style="text-align:center;">Terminal V71 - Agregat Pełny</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center;">Terminal V72 - Pełna Kontrola</h2>', unsafe_allow_html=True)
 
     # Globalny wybór interwału
-    global_tf = st.select_slider("Ustaw interwał dla wszystkich systemów:", options=["1H", "4H", "1D"], value="1D")
+    global_tf = st.select_slider("Interwał systemowy (Investing/TV):", options=["1H", "4H", "1D"], value="1D")
 
     if 'active' not in st.session_state: st.session_state.active = "GBP/CHF"
     col_l, col_r = st.columns([1, 1.4])
 
+    # --- PANEL LEWY: LISTA + LINKI ---
     with col_l:
-        st.subheader("📩 Sygnały")
+        st.subheader("📩 Aktywne Sygnały")
         for pair, info in DB.items():
             st.markdown(f"""
                 <div class="signal-card" style="border-left-color: {info['color']}">
@@ -108,27 +120,33 @@ def main():
                         <span style="font-size:1.3rem; font-weight:bold;">{pair}</span>
                         <span style="background:{info['color']}; color:white; padding:2px 10px; border-radius:5px; font-weight:bold;">{info['type']}</span>
                     </div>
-                    <small style="color:#b2b5be;">🕒 {info['updated']} | Global TF: {global_tf}</small>
+                    <small style="color:#b2b5be;">🕒 {info['updated']} | {global_tf}</small>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(f"Weryfikuj {pair}", key=f"btn_{pair}"):
+            
+            # Przycisk weryfikacji
+            if st.button(f"Weryfikuj {pair}", key=f"v_{pair}"):
                 st.session_state.active = pair
                 st.rerun()
+            
+            # NOWOŚĆ: Link pod każdą pozycją
+            st.link_button(f"✈️ Otwórz oryginał {pair}", info["link"], use_container_width=True)
+            st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
 
+    # --- PANEL PRAWY: ANALIZA + ZEGAREK ---
     with col_r:
         item = DB[st.session_state.active]
         data = item[global_tf]
         
-        st.subheader(f"📊 Analiza ({global_tf}): {st.session_state.active}")
+        st.subheader(f"📊 Analiza {global_tf}: {st.session_state.active}")
         
-        # Agregaty Główne
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(f'<div class="aggregator-card"><small>Investing.com</small><br><b style="font-size:1.5rem; color:{item["color"]}">{data["inv"]}</b></div>', unsafe_allow_html=True)
         with c2:
             st.markdown(f'<div class="aggregator-card"><small>TradingView Trend</small><br><b style="font-size:1.5rem; color:{item["color"]}">{data["tv"]}</b></div>', unsafe_allow_html=True)
 
-        # PASEK PODSUMOWANIA
+        # PASEK PODSUMOWANIA I ZEGARY
         total = data['s'] + data['n'] + data['k']
         st.markdown(f"""
             <div class="aggregator-card">
@@ -138,18 +156,22 @@ def main():
                     <div class="gauge-neutral" style="width: {(data['n']/total)*100}%"></div>
                     <div class="gauge-buy" style="width: {(data['k']/total)*100}%"></div>
                 </div>
-                
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top:10px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:0.85rem;">
+                    <span>Sprzedaż: {data['s']}</span>
+                    <span>Neutralnie: {data['n']}</span>
+                    <span>Kupno: {data['k']}</span>
+                </div>
         """, unsafe_allow_html=True)
         
+        # Naprawiona siatka zegarów
         g1, g2, g3 = st.columns(3)
-        with g1: render_mini_gauge("Oscylatory", "Neutralnie" if data['n'] > data['s'] else "Sprzedaż", "#f39c12" if data['n'] > data['s'] else "#ff4b4b")
+        with g1: render_mini_gauge("Oscylatory", "Sprzedaż" if data['s'] > 10 else "Neutralnie", "#ff4b4b" if data['s'] > 10 else "#f39c12")
         with g2: render_mini_gauge("Podsumowanie", data['tv'], item['color'])
         with g3: render_mini_gauge("Średnie", data['inv'], item['color'])
         
-        st.markdown('</div></div>', unsafe_allow_html=True)
-
-        # PRZYWRÓCONY LINK DO ŹRÓDŁA
-        st.link_button(f"✈️ Otwórz oryginalny sygnał na Telegramie", item["link"], use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Link zbiorczy na dole po prawej również zostawiłem dla wygody
+        st.link_button(f"🔗 Pełny raport na Telegramie", item["link"], use_container_width=True)
 
 if __name__ == "__main__": main()
