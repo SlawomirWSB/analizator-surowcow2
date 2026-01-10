@@ -3,10 +3,10 @@ import streamlit.components.v1 as components
 from streamlit_autorefresh import st_autorefresh
 
 # 1. Konfiguracja strony
-st.set_page_config(layout="wide", page_title="XTB TERMINAL V38", page_icon="📈")
+st.set_page_config(layout="wide", page_title="XTB TERMINAL V39 - SENTIMENT", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Stylizacja - poprawka odstępów i wyrównania
+# Stylizacja
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
@@ -16,50 +16,35 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. KOMPLETNA BAZA INSTRUMENTÓW (XTB / INVESTING / TV)
+# 2. Baza Instrumentów (Uzupełniona o ID sentymentu)
 DB = {
     "SUROWCE": {
-        "GOLD (Złoto)": {"tv": "OANDA:XAUUSD", "inv": "8830"},
-        "SILVER (Srebro)": {"tv": "OANDA:XAGUSD", "inv": "8836"},
-        "OIL.WTI (Ropa)": {"tv": "TVC:USOIL", "inv": "8849"},
-        "NATGAS (Gaz)": {"tv": "TVC:NATGAS", "inv": "8862"},
-        "COCOA (Kakao)": {"tv": "ICEUS:CC1!", "inv": "8894"},
-        "COFFEE (Kawa)": {"tv": "ICEUS:KC1!", "inv": "8832"},
-        "SUGAR (Cukier)": {"tv": "ICEUS:SB1!", "inv": "8869"},
-        "COPPER (Miedź)": {"tv": "COMEX:HG1!", "inv": "8831"},
-        "PLATINUM (Platyna)": {"tv": "NYMEX:PL1!", "inv": "8831"},
-        "ALUMINUM (Aluminium)": {"tv": "LME:ALI1!", "inv": "13568"}
+        "GOLD (Złoto)": {"tv": "OANDA:XAUUSD", "inv": "8830", "dfx": "gold"},
+        "SILVER (Srebro)": {"tv": "OANDA:XAGUSD", "inv": "8836", "dfx": "silver"},
+        "OIL.WTI (Ropa)": {"tv": "TVC:USOIL", "inv": "8849", "dfx": "us-crunch-oil"},
+        "NATGAS (Gaz)": {"tv": "TVC:NATGAS", "inv": "8862", "dfx": "natural-gas"},
+        "COCOA (Kakao)": {"tv": "ICEUS:CC1!", "inv": "8894", "dfx": ""},
     },
     "INDEKSY": {
-        "US100 (Nasdaq)": {"tv": "NASDAQ:NDX", "inv": "14958"},
-        "US500 (S&P500)": {"tv": "TVC:SPX", "inv": "166"},
-        "DE30 (DAX)": {"tv": "GLOBALPRIME:GER30", "inv": "172"},
-        "WIG20 (Polska)": {"tv": "GPW:WIG20", "inv": "10668"},
-        "FRA40 (CAC40)": {"tv": "EURONEXT:CAC40", "inv": "167"}
+        "US100 (Nasdaq)": {"tv": "NASDAQ:NDX", "inv": "14958", "dfx": "nasdaq-100"},
+        "US500 (S&P500)": {"tv": "TVC:SPX", "inv": "166", "dfx": "sp-500"},
+        "DE30 (DAX)": {"tv": "GLOBALPRIME:GER30", "inv": "172", "dfx": "germany-30"},
     },
     "FOREX": {
-        "EURUSD": {"tv": "FX:EURUSD", "inv": "1"},
-        "USDPLN": {"tv": "OANDA:USDPLN", "inv": "40"},
-        "EURPLN": {"tv": "OANDA:EURPLN", "inv": "45"},
-        "GBPUSD": {"tv": "FX:GBPUSD", "inv": "2"}
-    },
-    "KRYPTO": {
-        "BITCOIN": {"tv": "BINANCE:BTCUSDT", "inv": "945629"},
-        "ETHEREUM": {"tv": "BINANCE:ETHUSDT", "inv": "945610"},
-        "SOLANA": {"tv": "BINANCE:SOLUSDT", "inv": "1057391"}
+        "EURUSD": {"tv": "FX:EURUSD", "inv": "1", "dfx": "eur-usd"},
+        "USDPLN": {"tv": "OANDA:USDPLN", "inv": "40", "dfx": ""},
+        "GBPUSD": {"tv": "FX:GBPUSD", "inv": "2", "dfx": "gbp-usd"},
     }
 }
 
 def main():
-    # --- SIDEBAR ---
     with st.sidebar:
         st.title("💰 XTB TERMINAL")
-        st.info("### 🚀 REKOMENDACJA\nHandluj na XTB")
-        st.markdown("[👉 Otwórz Konto XTB](https://www.xtb.com/pl)") 
+        st.info("### SENTYMENT RYNKU\nJeśli >70% kupuje, uważaj na odwrócenie trendu!")
         st.markdown("---")
-        st.caption("Wersja: V38 | Fixed Cocoa & Width")
+        st.caption("V39 | Sentiment & Technicals")
 
-    # --- PANEL WYBORU ---
+    # PANEL WYBORU
     c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
     with c1: rynek = st.selectbox("Rynek:", list(DB.keys()))
     with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()))
@@ -68,58 +53,58 @@ def main():
 
     tv_symbol = DB[rynek][inst]["tv"]
     inv_id = DB[rynek][inst]["inv"]
+    dfx_id = DB[rynek][inst]["dfx"]
     tv_interval = f"{itv}" if itv != "D" else "1D"
 
-    st.subheader(f"🛡️ System Dual-Signal: {inst}")
+    st.subheader(f"🛡️ Triple Verification System: {inst}")
     
-    # --- PROPORCJE KOLUMN (Naprawiona szerokość) ---
-    col_sig1, col_sig2 = st.columns([1.2, 2.8]) # Lewa kolumna węższa, prawa szersza pod zegary
+    # TRZY KOLUMNY: Sentyment | Sygnał | Detale
+    col_sent, col_inv, col_tv = st.columns([1, 1, 2])
 
-    with col_sig1:
-        st.markdown("<p style='font-size:12px; color:#83888D;'>ŹRÓDŁO 1: INVESTING (Sygnał Techniczny)</p>", unsafe_allow_html=True)
-        # Widget Investing (Sygnały Kup/Sprzedaj)
+    with col_sent:
+        st.markdown("<p style='font-size:11px; color:#83888D; text-align:center;'>SENTYMENT (DAILYFX)</p>", unsafe_allow_html=True)
+        if dfx_id:
+            # Widżet sentymentu od DailyFX/IG
+            sent_url = f"https://www.dailyfx.com/sentiment-widget/{dfx_id}"
+            components.html(f'<iframe src="{sent_url}" width="100%" height="450" frameborder="0"></iframe>', height=460)
+        else:
+            st.warning("Sentyment niedostępny dla tego aktywa")
+
+    with col_inv:
+        st.markdown("<p style='font-size:11px; color:#83888D; text-align:center;'>SYGNAŁ (INVESTING)</p>", unsafe_allow_html=True)
         tech_inv = f"""
         <iframe src="https://ssltsw.investing.com?lang=51&forex={inv_id}&commodities={inv_id}&indices={inv_id}&stocks=&equities=&single_stock={inv_id}&indices_id={inv_id}&quotes_id={inv_id}&stocks_id=&time_frame=900" 
-        width="100%" height="480" frameborder="0"></iframe>
+        width="100%" height="450" frameborder="0"></iframe>
         """
-        components.html(tech_inv, height=490)
+        components.html(tech_inv, height=460)
 
-    with col_sig2:
-        st.markdown("<p style='font-size:12px; color:#83888D;'>ŹRÓDŁO 2: TRADINGVIEW (Analiza Szczegółowa)</p>", unsafe_allow_html=True)
-        # Widget TV (Zegary i Wskaźniki)
+    with col_tv:
+        st.markdown("<p style='font-size:11px; color:#83888D; text-align:center;'>ANALIZA (TRADINGVIEW)</p>", unsafe_allow_html=True)
         tech_tv = f"""
-        <div style="height: 480px;">
+        <div style="height: 450px;">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
           {{
           "interval": "{tv_interval if tv_interval == '1D' else tv_interval+'m'}",
-          "width": "100%", "height": 480,
-          "isTransparent": true, 
-          "symbol": "{tv_symbol}",
-          "showIntervalTabs": true, "displayMode": "multiple",
-          "locale": "pl", "colorTheme": "dark"
-        }}
+          "width": "100%", "height": 450, "isTransparent": true, "symbol": "{tv_symbol}",
+          "showIntervalTabs": true, "displayMode": "multiple", "locale": "pl", "colorTheme": "dark"
+          }}
           </script>
         </div>
         """
-        components.html(tech_tv, height=490)
+        components.html(tech_tv, height=460)
 
-    # --- WYKRES DOLNY ---
+    # WYKRES GŁÓWNY
     st.markdown("---")
-    chart_code = f"""
-    <div id="tv_chart_main" style="height: 600px;"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-      "width": "100%", "height": 600,
-      "symbol": "{tv_symbol}", 
-      "interval": "{itv}",
-      "theme": "dark", "style": "1",
-      "locale": "pl", "container_id": "tv_chart_main",
-      "hide_side_toolbar": false, "allow_symbol_change": true
-    }});
-    </script>
-    """
-    components.html(chart_code, height=620)
+    components.html(f"""
+        <div id="tv_chart_main" style="height: 500px;"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+        <script type="text/javascript">
+        new TradingView.widget({{
+          "width": "100%", "height": 500, "symbol": "{tv_symbol}", "interval": "{itv}",
+          "theme": "dark", "style": "1", "locale": "pl", "container_id": "tv_chart_main"
+        }});
+        </script>
+    """, height=520)
 
 if __name__ == "__main__":
     main()
