@@ -2,104 +2,75 @@ import streamlit as st
 import streamlit.components.v1 as components
 from streamlit_autorefresh import st_autorefresh
 
-# 1. Konfiguracja i Autorefresh
-st.set_page_config(layout="wide", page_title="XTB TERMINAL V42 - STABLE", page_icon="⚡")
+# 1. Konfiguracja strony
+st.set_page_config(layout="wide", page_title="XTB TERMINAL V43 - ULTRA STABLE", page_icon="📈")
 st_autorefresh(interval=60 * 1000, key="data_refresh")
 
-# Stylizacja - Eliminacja marginesów
+# Stylizacja
 st.markdown("""
     <style>
     .block-container { padding: 1rem !important; }
     header { visibility: hidden; }
-    iframe { border-radius: 10px; border: 1px solid #2a2e39 !important; background: #131722; }
+    iframe { border-radius: 8px; background: #131722; border: 1px solid #2a2e39; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza danych instrumentów
+# 2. BAZA DANYCH (Zoptymalizowana pod darmowe feedy)
 DB = {
     "SUROWCE": {
-        "GOLD (Złoto)": "OANDA:XAUUSD",
-        "SILVER (Srebro)": "OANDA:XAGUSD",
+        "GOLD (Złoto)": "TVC:GOLD",
+        "SILVER (Srebro)": "TVC:SILVER",
         "COCOA (Kakao)": "ICEUS:CC1!",
         "COFFEE (Kawa)": "ICEUS:KC1!",
         "OIL.WTI (Ropa)": "TVC:USOIL",
         "NATGAS (Gaz)": "TVC:NATGAS"
     },
     "INDEKSY": {
-        "US100 (Nasdaq)": "NASDAQ:NDX",
+        "US100 (Nasdaq)": "TVC:NDX",
         "US500 (S&P500)": "TVC:SPX",
-        "DE30 (DAX)": "GLOBALPRIME:GER30",
+        "DE30 (DAX)": "TVC:DAX",
         "WIG20 (Polska)": "GPW:WIG20"
     },
     "FOREX": {
         "EURUSD": "FX:EURUSD",
-        "USDPLN": "OANDA:USDPLN",
+        "USDPLN": "FX_IDC:USDPLN",
         "GBPUSD": "FX:GBPUSD"
     }
 }
 
-def create_tv_widget(symbol, interval, mode="multiple"):
-    # Konwersja interwału dla Widgetu TV
-    adj_int = interval if interval == "D" else f"{interval}"
-    return f"""
-    <div class="tradingview-widget-container">
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-      {{
-      "interval": "{adj_int}",
-      "width": "100%",
-      "isTransparent": true,
-      "height": 450,
-      "symbol": "{symbol}",
-      "showIntervalTabs": true,
-      "displayMode": "{mode}",
-      "locale": "pl",
-      "colorTheme": "dark"
-    }}
-      </script>
-    </div>
-    """
-
 def main():
-    # MENU
+    # --- PANEL STEROWANIA ---
     c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
     with c1: rynek = st.selectbox("Rynek:", list(DB.keys()))
     with c2: inst = st.selectbox("Instrument:", list(DB[rynek].keys()))
     with c3: itv = st.selectbox("Interwał:", ["1", "5", "15", "60", "D"], index=2)
-    with c4: st.write(""); st.checkbox("Audio", value=True)
+    with c4: st.write(""); audio = st.checkbox("Audio Alert", value=True)
 
     symbol = DB[rynek][inst]
-    
-    st.subheader(f"📊 Analiza Techniczna Live: {inst}")
+    # Mapowanie interwału dla widgetu (minuty muszą mieć dopisek 'm')
+    tv_int = f"{itv}m" if itv.isdigit() else "1D"
 
-    # --- TRZY PANELE ANALIZY ---
-    col1, col2 = st.columns([1, 1]) # Dwie główne sekcje analizy dla lepszej czytelności
+    st.subheader(f"🛡️ System Weryfikacji Technicznej: {inst}")
+
+    # --- TWO-PILLAR ANALYSIS (Metoda Iframe Direct) ---
+    col1, col2 = st.columns(2)
 
     with col1:
-        st.caption("⏱️ Podsumowanie Sygnałów (Zegar)")
-        components.html(create_tv_widget(symbol, itv, mode="single"), height=460)
+        st.caption("✅ SYGNAŁ 1: PODSUMOWANIE (Zegar)")
+        # Używamy bezpośredniego linku do widgetu Technical Analysis
+        widget_url = f"https://s.tradingview.com/embed-widget/technical-analysis/?locale=pl#%7B%22interval%22%3A%22{tv_int}%22%2C%22width%22%3A%22100%25%22%2C%22isTransparent%22%3Atrue%2C%22height%22%3A450%2C%22symbol%22%3A%22{symbol}%22%2C%22showIntervalTabs%22%3Atrue%2C%22displayMode%22%3A%22single%22%2C%22colorTheme%22%3A%22dark%22%7D"
+        st.components.v1.iframe(widget_url, height=450)
 
     with col2:
-        st.caption("📈 Szczegóły Wskaźników (Oscylatory i Średnie)")
-        components.html(create_tv_widget(symbol, itv, mode="multiple"), height=460)
+        st.caption("🔍 SYGNAŁ 2: SZCZEGÓŁY (Wskaźniki)")
+        # Ten sam widget, ale w trybie 'multiple'
+        detail_url = f"https://s.tradingview.com/embed-widget/technical-analysis/?locale=pl#%7B%22interval%22%3A%22{tv_int}%22%2C%22width%22%3A%22100%25%22%2C%22isTransparent%22%3Atrue%2C%22height%22%3A450%2C%22symbol%22%3A%22{symbol}%22%2C%22showIntervalTabs%22%3Atrue%2C%22displayMode%22%3A%22multiple%22%2C%22colorTheme%22%3A%22dark%22%7D"
+        st.components.v1.iframe(detail_url, height=450)
 
-    # --- GŁÓWNY WYKRES ---
+    # --- WYKRES DOLNY ---
     st.markdown("---")
-    st.caption("🕒 Wykres Interaktywny (XTB Feed)")
-    chart_html = f"""
-    <div id="chart_v42" style="height: 600px;"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-      "width": "100%", "height": 600,
-      "symbol": "{symbol}", "interval": "{itv}",
-      "theme": "dark", "style": "1", "locale": "pl",
-      "container_id": "chart_v42", "withdateranges": true,
-      "hide_side_toolbar": false, "allow_symbol_change": true,
-      "save_image": false
-    }});
-    </script>
-    """
-    components.html(chart_html, height=620)
+    chart_url = f"https://s.tradingview.com/widgetembed/?symbol={symbol}&interval={itv}&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Europe%2FWarsaw&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=[]&disabled_features=[]&locale=pl"
+    st.components.v1.iframe(chart_url, height=600)
 
 if __name__ == "__main__":
     main()
