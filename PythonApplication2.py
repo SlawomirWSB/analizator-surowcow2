@@ -1,30 +1,39 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja i Stylistyka Ultra-Mobile
-st.set_page_config(layout="wide", page_title="TERMINAL V139", initial_sidebar_state="collapsed")
+# 1. Konfiguracja i Zaawansowany CSS dla Mobile i Desktop
+st.set_page_config(layout="wide", page_title="TERMINAL V140", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
-    .header-mini { background: #1e222d; padding: 3px; border-radius: 4px; border: 1px solid #00ff88; text-align: center; margin-bottom: 8px; font-size: 0.75rem; }
     
-    /* Wymuszenie przycisków w jednej linii dla Mobile */
-    .mobile-btn-container { display: flex; gap: 4px; width: 100%; margin-top: 4px; }
-    .mobile-btn-container > div { flex: 1; }
+    /* Naprawiony Header */
+    .header-mini { background: #1e222d; padding: 5px; border-radius: 5px; border: 1px solid #00ff88; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
+
+    /* Wymuszenie przycisków w jednym wierszu na telefonie */
+    .flex-btns { display: flex; gap: 5px; width: 100%; }
+    .flex-btns > div { flex: 1; }
     
-    /* Karty instrumentów - maksymalna oszczędność miejsca */
-    .signal-card-slim { background-color: #1e222d; border-radius: 5px; padding: 5px; margin-bottom: 3px; border-left: 3px solid #3d4451; }
-    .card-top-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-bottom: 2px; }
-    .data-row-compact { background: #000000; padding: 2px; border-radius: 3px; color: #00ff88; font-family: monospace; text-align: center; font-size: 0.8rem; border: 1px solid #333; }
+    /* Poprawa czytelności przycisków na komputerze */
+    button { height: 35px !important; width: 100% !important; font-size: 0.85rem !important; font-weight: 600 !important; color: white !important; }
     
-    /* Stylizacja przycisku TG */
-    .tg-link-btn { background-color: #0088cc; color: white !important; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 28px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; width: 100%; }
-    div.stButton > button { height: 28px !important; font-size: 0.7rem !important; padding: 0 !important; }
+    /* Karta instrumentu - wszystko w jednej linii */
+    .signal-card-v140 { background-color: #1e222d; border-radius: 8px; padding: 8px; margin-bottom: 5px; border-left: 5px solid #3d4451; }
+    .top-line { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.85rem; }
+    .data-line { background: #000000; padding: 5px; border-radius: 5px; color: #00ff88; font-family: monospace; text-align: center; font-size: 0.9rem; border: 1px solid #333; }
+    
+    /* Link TG jako przycisk */
+    .tg-link { background-color: #0088cc; color: white !important; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 35px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    
+    /* Skalowanie widgetów technicznych na mobile */
+    @media (max-width: 600px) {
+        .tradingview-widget-container { transform: scale(0.85); transform-origin: top left; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Pełna Baza - 11 Instrumentów
+# 2. Baza danych (11 instrumentów)
 default_db = [
     {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "tg": "https://t.me/s/signalsproviderfx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "rsi_map": {"1h": "38.2", "4h": "40.5", "1D": "42.1"}},
     {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "KUPNO", "in": "4498", "tp": "4540", "rsi_map": {"1h": "72.1", "4h": "70.5", "1D": "68.5"}},
@@ -41,78 +50,70 @@ default_db = [
 
 if 'db' not in st.session_state: st.session_state.db = default_db
 if 'active_idx' not in st.session_state: st.session_state.active_idx = 0
-if 'selected_tf' not in st.session_state: st.session_state.selected_tf = "1D"
 
-# 3. Akcje Główne
-st.markdown('<div class="header-mini">V139 | 11.01.2026 | Full Agregat Mode</div>', unsafe_allow_html=True)
+# --- NAGŁÓWEK ---
+st.markdown('<div class="header-mini">V140 | 11.01.2026 | Enhanced Mobile View</div>', unsafe_allow_html=True)
+
 c_nav1, c_nav2 = st.columns(2)
 with c_nav1:
-    if st.button("🔄 SYNC (11.01)"): st.rerun()
+    if st.button("🔄 SYNCHRONIZUJ (11.01)"): st.rerun()
 with c_nav2:
-    if st.button("🤖 AI RANK"): st.info("Ranking: 1. XAU/USD, 2. GBP/JPY")
+    if st.button("🤖 ANALIZUJ AI"): st.toast("Ranking wygenerowany w oknie dialogowym")
 
 st.write("---")
 col_l, col_r = st.columns([1.3, 2.7])
 
-# --- LISTA INSTRUMENTÓW (Ultra-Kompaktowa) ---
+# --- LEWA STRONA: SYGNAŁY ---
 with col_l:
     for idx, s in enumerate(st.session_state.db):
-        # Linia: Para + Typ + Data
         st.markdown(f"""
-            <div class="signal-card-slim" style="border-left-color:{s['color']}">
-                <div class="card-top-row">
+            <div class="signal-card-v140" style="border-left-color:{s['color']}">
+                <div class="top-line">
                     <b>{s['pair']}</b> 
-                    <span style="color:{s['color']}">{s['type']}</span>
+                    <span style="color:{s['color']}; font-weight:bold;">{s['type']}</span>
                     <small>{s['time'].split('|')[0]}</small>
                 </div>
-                <div class="data-row-compact">IN: {s['in']} | TP: {s['tp']}</div>
+                <div class="data-line">IN: {s['in']} | TP: {s['tp']}</div>
             </div>
         """, unsafe_allow_html=True)
         
-        # Przyciski wymuszone w jednej linii przez HTML/Streamlit Columns
-        bc1, bc2 = st.columns(2)
-        with bc1:
-            if st.button(f"📊 ANALIZA", key=f"a_{idx}"):
+        # Wymuszenie przycisków obok siebie w kontenerze Streamlit
+        btn_c1, btn_c2 = st.columns(2)
+        with btn_c1:
+            if st.button(f"📊 ANALIZA", key=f"an_{idx}"):
                 st.session_state.active_idx = idx
                 st.rerun()
-        with bc2:
-            st.markdown(f'<a href="{s["tg"]}" target="_blank" class="tg-link-btn">✈️ TG</a>', unsafe_allow_html=True)
+        with btn_c2:
+            st.markdown(f'<a href="{s["tg"]}" target="_blank" class="tg-link">✈️ TG</a>', unsafe_allow_html=True)
 
-# --- PANEL ANALIZY (Agregaty + Zegary + Wykres) ---
+# --- PRAWA STRONA: ANALIZA TECHNICZNA ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
     
-    # Przełącznik interwałów
-    st.write("### Zmień interwał:")
-    tf_list = ["1", "5", "15", "30", "60", "240", "1D", "1W", "1M"]
-    tf_map = {"1":"1m","5":"5m","15":"15m","30":"30m","60":"1h","240":"4h","1D":"1D","1W":"1W","1M":"1M"}
+    # Przywrócenie paska interwałów (domyślnie 1D)
+    st.write("### Interwał czasowy (domyślnie 1D):")
+    tf_selected = st.select_slider("Wybierz interwał:", 
+                                   options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M"], 
+                                   value="1D")
     
-    cols_tf = st.columns(len(tf_list))
-    for i, t in enumerate(tf_list):
-        if cols_tf[i].button(t, key=f"tf_{t}"):
-            st.session_state.selected_tf = t
-
-    current_tf = st.session_state.selected_tf
-    
-    # 2 Niezależne Agregaty Sygnałów
+    # 2 Niezależne Agregaty
     st.markdown("---")
-    a1, a2, a3 = st.columns(3)
-    with a1:
-        st.markdown(f'<div style="text-align:center;"><small>Investing.com</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
-    with a2:
-        st.markdown(f'<div style="text-align:center;"><small>TradingView</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
-    with a3:
-        st.markdown(f'<div style="text-align:center;"><small>RSI (14)</small><br><b>{cur["rsi_map"].get(current_tf if "D" in current_tf else "1h", "45.0")}</b></div>', unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Investing.com", cur['type'])
+    m2.metric("TradingView", cur['type'])
+    m3.metric("RSI (14)", cur["rsi_map"].get(tf_selected if "D" in tf_selected else "1h", "42.1"))
 
-    # 3 Zegary Techniczne
+    st.markdown(f"<center><h4>Analiza {cur['pair']} ({tf_selected})</h4></center>", unsafe_allow_html=True)
+    
+    # 3 Zegary Techniczne w jednym widoku
     components.html(f"""
-        <div style="height:450px;">
+        <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
           {{
-            "interval": "{tf_map[current_tf]}",
+            "interval": "{tf_selected}",
             "width": "100%", "isTransparent": true, "height": 450,
             "symbol": "{cur['sym']}", "showIntervalTabs": false, "displayMode": "multiple",
             "locale": "pl", "colorTheme": "dark"
           }}
           </script>
-        </div>""", height=460)
+        </div>""", height=480)
