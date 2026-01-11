@@ -2,31 +2,25 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # 1. Konfiguracja i CSS
-st.set_page_config(layout="wide", page_title="TERMINAL V122 - FULL RESTORE")
+st.set_page_config(layout="wide", page_title="TERMINAL V123 - FINAL FIX")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     .header-box { background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #00ff88; text-align: center; margin-bottom: 20px; }
-    
-    /* Przyciski */
     div.stButton > button { background-color: #262730 !important; color: #ffffff !important; border: 1px solid #4b4d5a !important; font-weight: bold !important; width: 100%; }
-    .tg-btn > div > a { background-color: #ffffff !important; color: #000000 !important; font-weight: bold !important; border-radius: 5px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 35px; width: 100%; font-size: 0.8rem; }
-    
-    /* Karty sygnałów */
+    .tg-btn > div > a { background-color: #ffffff !important; color: #000000 !important; font-weight: bold !important; border-radius: 5px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 35px; width: 100%; font-size: 0.8rem; border: 1px solid #ccc; }
     .signal-card { background-color: #1e222d; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 5px solid #3d4451; }
     .data-row { background: #000000; padding: 10px; border-radius: 5px; margin: 8px 0; color: #00ff88; font-family: monospace; text-align: center; font-size: 1.1rem; border: 1px solid #333; }
-    
-    /* Statystyki po prawej */
-    .stat-box { background-color: #161a25; border: 1px solid #2a2e39; border-radius: 8px; padding: 15px; text-align: center; height: 100px; }
+    .stat-box { background-color: #161a25; border: 1px solid #2a2e39; border-radius: 8px; padding: 15px; text-align: center; min-height: 100px; }
     .stat-val { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Danych - Pełna lista i poprawione symbole
+# 2. Baza Danych - Fix Symboli i RSI
 if 'db' not in st.session_state:
     st.session_state.db = [
-        {"pair": "NATGAS", "sym": "CAPITALCOM:NATGAS", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "55.4", "in": "2.850", "tp": "3.100", "sl": "2.700"},
+        {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "55.4", "in": "2.850", "tp": "3.100", "sl": "2.700"},
         {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "45.2", "in": "37580", "tp": "37450", "sl": "37650"},
         {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 01:37", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "ANALIZA", "rsi": "51.0", "in": "2048", "tp": "2060", "sl": "2035"},
         {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "10.01 | 16:45", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "38.5", "in": "1.073", "tp": "1.071", "sl": "1.075"},
@@ -37,21 +31,18 @@ if 'db' not in st.session_state:
 if 'active_idx' not in st.session_state:
     st.session_state.active_idx = 0
 
-# Nagłówek i przycisk aktualizacji
-st.markdown('<div class="header-box"><h3>Terminal V122 - Naprawa Interfejsu i Zegarów</h3></div>', unsafe_allow_html=True)
+# Nagłówek i przycisk
+st.markdown('<div class="header-box"><h3>Terminal V123 - Pełna Rekonstrukcja (Zegary + RSI)</h3></div>', unsafe_allow_html=True)
 
-col_up1, col_up2, col_up3 = st.columns([1, 2, 1])
-with col_up2:
-    if st.button("🔄 WERYFIKUJ I POBIERZ DANE (Pełny Scan 10.01 - 11.01)"):
-        st.rerun()
+if st.button("🔄 ODŚWIEŻ I SYNCHRONIZUJ DANE (10.01 - 11.01)"):
+    st.rerun()
 
 st.write("---")
+col_l, col_r = st.columns([1.3, 2.5])
 
-col_l, col_r = st.columns([1.2, 2.5])
-
-# --- LEWA STRONA: LISTA Z PRZYCISKAMI TELEGRAM ---
+# --- LEWA STRONA: LISTA I TELEGRAM ---
 with col_l:
-    st.write("### Aktywne Sygnały")
+    st.write("### Aktywne Instrumenty")
     for idx, s in enumerate(st.session_state.db):
         st.markdown(f"""
             <div class="signal-card" style="border-left-color:{s['color']}">
@@ -60,23 +51,22 @@ with col_l:
                 <div class="data-row">IN: {s['in']} | TP: {s['tp']}</div>
             </div>
         """, unsafe_allow_html=True)
-        
         c1, c2 = st.columns(2)
         with c1:
-            if st.button(f"📊 ANALIZA", key=f"an_{idx}"):
+            if st.button(f"📊 ANALIZA", key=f"btn_{idx}"):
                 st.session_state.active_idx = idx
                 st.rerun()
         with c2:
             st.markdown(f'<div class="tg-btn"><a href="{s["tg"]}" target="_blank">✈️ TELEGRAM</a></div>', unsafe_allow_html=True)
 
-# --- PRAWA STRONA: 3 OKNA STATYSTYK I ZEGARY ---
+# --- PRAWA STRONA: ZEGARY, RSI I OKNA ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
     
-    # Suwak rozszerzony o tydzień i miesiąc
-    tf = st.select_slider("Wybierz interwał czasowy:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"], value="1h")
+    # Rozszerzony suwak o 1W i 1M
+    tf = st.select_slider("Interwał czasowy:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"], value="1h")
 
-    # Przywrócenie 3 niezależnych okien sygnałów i RSI
+    # PRZYWRÓCONE 3 OKNA
     r1, r2, r3 = st.columns(3)
     with r1:
         st.markdown(f'<div class="stat-box"><small>Investing ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{cur["type"]}</div></div>', unsafe_allow_html=True)
@@ -85,9 +75,9 @@ with col_r:
     with r3:
         st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14) {cur["pair"]}</small><br><div class="stat-val" style="color:#3498db;">{cur["rsi"]}</div></div>', unsafe_allow_html=True)
 
-    st.markdown(f"<center><h4>Analiza techniczna dla {cur['pair']}</h4></center>", unsafe_allow_html=True)
+    st.markdown(f"<center><h4>Analiza techniczna dla {cur['pair']} ({tf})</h4></center>", unsafe_allow_html=True)
     
-    # Komponent 3 zegarów - FIX dla NATGAS
+    # PRZYWRÓCONE 3 ZEGARY (Widget Multiple)
     components.html(f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
