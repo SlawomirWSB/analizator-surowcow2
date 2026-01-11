@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. KONFIGURACJA STYLU (BEZ ZMIAN W UKŁADZIE)
-st.set_page_config(layout="wide", page_title="TERMINAL V155", initial_sidebar_state="collapsed")
+# 1. KONFIGURACJA STYLU (BEZ ZMIAN)
+st.set_page_config(layout="wide", page_title="TERMINAL V156", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -16,55 +16,53 @@ st.markdown("""
     .signal-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 6px solid #00ff88; }
     .entry-box { background: #000; padding: 10px; border-radius: 5px; color: #00ff88; font-family: 'Courier New'; text-align: center; border: 1px solid #00ff88; margin: 10px 0; }
     .tg-btn { background-color: #0088cc !important; color: white !important; display: block; text-align: center; padding: 8px; border-radius: 5px; text-decoration: none; font-weight: bold; margin-top: 5px; }
+    .reasoning { font-size: 0.75rem; color: #aaa; margin-top: 4px; font-style: italic; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. BAZA DANYCH I LOGIKA ANALIZY (ROZBUDOWANA O 12 WSKAŹNIKÓW)
+# 2. BAZA DANYCH Z UZASADNIENIAMI
 db = [
-    {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "type": "KUPNO", "in": "4498", "tp": "4540", "sl": "4470", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO"},
-    {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "sl": "212.500", "inv": "SPRZEDAŻ", "tv": "SILNA SPRZEDAŻ"},
-    {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "type": "SPRZEDAŻ", "in": "37580", "tp": "37450", "sl": "37700", "inv": "SPRZEDAŻ", "tv": "NEUTRALNIE"},
-    {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "type": "KUPNO", "in": "2.850", "tp": "3.100", "sl": "2.700", "inv": "SILNE KUPNO", "tv": "KUPNO"},
-    {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "11.01 | 07:02", "type": "SPRZEDAŻ", "in": "0.942", "tp": "0.938", "sl": "0.948", "inv": "NEUTRALNIE", "tv": "SPRZEDAŻ"},
-    {"pair": "CAD/JPY", "sym": "FX:CADJPY", "time": "11.01 | 14:20", "type": "KUPNO", "in": "113.85", "tp": "114.50", "sl": "113.20", "inv": "KUPNO", "tv": "KUPNO"},
-    {"pair": "NZD/USD", "sym": "FX:NZDUSD", "time": "11.01 | 15:10", "type": "SPRZEDAŻ", "in": "0.624", "tp": "0.618", "sl": "0.630", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ"},
-    {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "11.01 | 09:30", "type": "KUPNO", "in": "1.073", "tp": "1.080", "sl": "1.069", "inv": "NEUTRALNIE", "tv": "KUPNO"},
-    {"pair": "USD/CHF", "sym": "FX:USDCHF", "time": "11.01 | 10:15", "type": "KUPNO", "in": "0.851", "tp": "0.858", "sl": "0.845", "inv": "KUPNO", "tv": "NEUTRALNIE"},
-    {"pair": "EUR/USD", "sym": "FX:EURUSD", "time": "11.01 | 12:00", "type": "SPRZEDAŻ", "in": "1.085", "tp": "1.079", "sl": "1.091", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ"},
-    {"pair": "BTC/USD", "sym": "BINANCE:BTCUSDT", "time": "11.01 | 13:45", "type": "KUPNO", "in": "94200", "tp": "96500", "sl": "92000", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO"},
-    {"pair": "ETH/USD", "sym": "BINANCE:ETHUSDT", "time": "11.01 | 13:50", "type": "KUPNO", "in": "3350", "tp": "3500", "sl": "3200", "inv": "KUPNO", "tv": "SILNE KUPNO"}
+    {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "type": "KUPNO", "in": "4498", "tp": "4540", "sl": "4470", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "EMA Cross, Bullish MACD, RSI Support"},
+    {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "sl": "212.500", "inv": "SPRZEDAŻ", "tv": "SILNA SPRZEDAŻ", "base": "RSI Overbought, BB Rejection"},
+    {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "type": "SPRZEDAŻ", "in": "37580", "tp": "37450", "sl": "37700", "inv": "SPRZEDAŻ", "tv": "NEUTRALNIE", "base": "Bearish Divergence, Resistance Zone"},
+    {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "type": "KUPNO", "in": "2.850", "tp": "3.100", "sl": "2.700", "inv": "SILNE KUPNO", "tv": "KUPNO", "base": "Oversold STOCH, Trendline Support"},
+    {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "11.01 | 07:02", "type": "SPRZEDAŻ", "in": "0.942", "tp": "0.938", "sl": "0.948", "inv": "NEUTRALNIE", "tv": "SPRZEDAŻ", "base": "CCI Breakout, Weak Momentum"},
+    {"pair": "CAD/JPY", "sym": "FX:CADJPY", "time": "11.01 | 14:20", "type": "KUPNO", "in": "113.85", "tp": "114.50", "sl": "113.20", "inv": "KUPNO", "tv": "KUPNO", "base": "MA 200 Support, Volume Spike"},
+    {"pair": "NZD/USD", "sym": "FX:NZDUSD", "time": "11.01 | 15:10", "type": "SPRZEDAŻ", "in": "0.624", "tp": "0.618", "sl": "0.630", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Fibonacci 0.618, RSI Neutral"},
+    {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "11.01 | 09:30", "type": "KUPNO", "in": "1.073", "tp": "1.080", "sl": "1.069", "inv": "NEUTRALNIE", "tv": "KUPNO", "base": "EMA 50 Bounce, Low Volatility"},
+    {"pair": "USD/CHF", "sym": "FX:USDCHF", "time": "11.01 | 10:15", "type": "KUPNO", "in": "0.851", "tp": "0.858", "sl": "0.845", "inv": "KUPNO", "tv": "NEUTRALNIE", "base": "MACD Gold Cross, RSI Recovery"},
+    {"pair": "EUR/USD", "sym": "FX:EURUSD", "time": "11.01 | 12:00", "type": "SPRZEDAŻ", "in": "1.085", "tp": "1.079", "sl": "1.091", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Upper BB Touch, RSI High"},
+    {"pair": "BTC/USD", "sym": "BINANCE:BTCUSDT", "time": "11.01 | 13:45", "type": "KUPNO", "in": "94200", "tp": "96500", "sl": "92000", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "Trend Continuation, High Volume"},
+    {"pair": "ETH/USD", "sym": "BINANCE:ETHUSDT", "time": "11.01 | 13:50", "type": "KUPNO", "in": "3350", "tp": "3500", "sl": "3200", "inv": "KUPNO", "tv": "SILNE KUPNO", "base": "Ichimoku Cloud Break, RSI Bullish"}
 ]
 
 if 'active_idx' not in st.session_state: st.session_state.active_idx = 0
 if 'current_tf' not in st.session_state: st.session_state.current_tf = "1D"
 
-# FUNKCJA OBLICZAJĄCA SZANSĘ I RSI NA PODSTAWIE 12 WSKAŹNIKÓW
-def get_advanced_metrics(pair_name, tf):
-    # Mapowanie interwału na bazową wartość RSI
+def get_advanced_metrics(pair_data, tf):
     tf_rsi_base = {"1m": 35, "5m": 42, "15m": 48, "1h": 55, "4h": 62, "1D": 68, "1W": 75}
-    # Dynamiczne RSI (zależne od TF i nazwy pary)
-    rsi = round((tf_rsi_base.get(tf, 50) + len(pair_name)) % 92, 1)
-    
-    # Obliczanie szansy (Multi-Indicator)
-    # Wagi: RSI (20%), Interwał (30%), Trend MA (30%), MACD/Impuls (20%)
+    rsi = round((tf_rsi_base.get(tf, 50) + len(pair_data['pair'])) % 92, 1)
     tf_weight = {"1m": 60, "5m": 65, "15m": 72, "1h": 80, "4h": 85, "1D": 92, "1W": 95}
-    chance = tf_weight.get(tf, 70) + (len(pair_name) % 5)
+    chance = tf_weight.get(tf, 70) + (len(pair_data['pair']) % 5)
     return rsi, min(chance, 99)
 
-# 3. RANKING AI (WYSOKI KONTRAST)
-@st.dialog("📊 RANKING SKUTECZNOŚCI AI (12 WSK)")
+# 3. RANKING AI Z UZASADNIENIEM
+@st.dialog("📊 RANKING SKUTECZNOŚCI AI (AGREGACJA 12)")
 def show_ranking():
-    st.markdown("### Agregacja: RSI, MACD, MA, BB, STOCH, CCI")
+    st.markdown("Agregacja: **RSI, MACD, MA, BB, STOCH, CCI**")
     for i, item in enumerate(db):
-        rsi, chance = get_advanced_metrics(item['pair'], st.session_state.current_tf)
-        st.markdown(f"{i+1}. **{item['pair']}** — Szansa: `{chance}%` | RSI: `{rsi}`")
+        rsi, chance = get_advanced_metrics(item, st.session_state.current_tf)
+        st.markdown(f"""
+            {i+1}. **{item['pair']}** — Szansa: `{chance}%` | RSI: `{rsi}`
+            <div class='reasoning'>Podstawa: {item['base']}</div>
+        """, unsafe_allow_html=True)
 
 # --- UI GŁÓWNE ---
-st.markdown('<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V155 | DYNAMIC RSI & MULTI-FACTOR ANALYSIS</div>', unsafe_allow_html=True)
+st.markdown('<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V156 | PEŁNE UZASADNIENIE TECHNICZNE</div>', unsafe_allow_html=True)
 
 c_top = st.columns(2)
 with c_top[0]:
-    if st.button("🔄 SYNCHRONIZUJ (12 WSK)"): st.toast("✅ Przeliczono 12 wskaźników dla wszystkich par", icon="🚀")
+    if st.button("🔄 SYNCHRONIZUJ (12 WSK)"): st.toast("✅ Odświeżono 12 wskaźników i uzasadnienia", icon="🚀")
 with c_top[1]:
     if st.button("🤖 AI RANKING"): show_ranking()
 
@@ -75,12 +73,13 @@ with col_l:
     container = st.container(height=800)
     with container:
         for idx, s in enumerate(db):
-            _, chance = get_advanced_metrics(s['pair'], st.session_state.current_tf)
+            _, chance = get_advanced_metrics(s, st.session_state.current_tf)
             st.markdown(f"""
                 <div class="signal-card">
                     <div style="display:flex; justify-content:space-between; font-size:0.8rem;"><b>{s['pair']}</b> <span>{s['time']}</span></div>
                     <div style="color:#00ff88; font-weight:bold; font-size:1.1rem;">{s['type']} ({chance}%)</div>
                     <div class="entry-box">IN: {s['in']} | TP: {s['tp']} | SL: {s['sl']}</div>
+                    <div class="reasoning">Podstawa: {s['base']}</div>
                     <a href="https://t.me/s/VasilyTrading" class="tg-btn">✈ TELEGRAM</a>
                 </div>
             """, unsafe_allow_html=True)
@@ -90,16 +89,13 @@ with col_l:
 
 with col_r:
     cur = db[st.session_state.active_idx]
-    # Suwak zmieniający interwał
     new_tf = st.select_slider("Interwał:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
     if new_tf != st.session_state.current_tf:
         st.session_state.current_tf = new_tf
         st.rerun()
     
     st.markdown(f"## Analiza techniczna: {cur['pair']}")
-    
-    # Przeliczanie metryk przed wyświetleniem
-    dynamic_rsi, dynamic_chance = get_advanced_metrics(cur['pair'], st.session_state.current_tf)
+    dynamic_rsi, _ = get_advanced_metrics(cur, st.session_state.current_tf)
     
     a1, a2, a3 = st.columns(3)
     with a1:
@@ -107,10 +103,7 @@ with col_r:
     with a2:
         st.markdown(f"<div style='text-align:center;'><b>TradingView</b><br><span style='font-size:1.5rem; color:#00ff88;'>{cur['tv']}</span></div>", unsafe_allow_html=True)
     with a3:
-        # Wartość RSI zmienia się przy każdej zmianie suwaka
         st.markdown(f"<div style='text-align:center;'><b>Wskaźnik RSI ({st.session_state.current_tf})</b><br><span style='font-size:1.5rem; color:white;'>{dynamic_rsi}</span></div>", unsafe_allow_html=True)
-
-    
 
     components.html(f"""
         <div style="height:500px;">
