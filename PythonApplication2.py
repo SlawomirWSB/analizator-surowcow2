@@ -1,23 +1,29 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja i Stylizacja
-st.set_page_config(layout="wide", page_title="TERMINAL V125 - DYNAMIC FIX")
+# 1. Konfiguracja i Stylistyka
+st.set_page_config(layout="wide", page_title="TERMINAL V126 - FINAL DYNAMIC")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
     .header-box { background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #00ff88; text-align: center; margin-bottom: 20px; }
+    
+    /* Przyciski boczne i Telegram */
     div.stButton > button { background-color: #262730 !important; color: #ffffff !important; border: 1px solid #4b4d5a !important; font-weight: bold !important; width: 100%; }
     .tg-btn > div > a { background-color: #ffffff !important; color: #000000 !important; font-weight: bold !important; border-radius: 5px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 35px; width: 100%; font-size: 0.8rem; border: 1px solid #ccc; }
+    
+    /* Karty sygnałów po lewej */
     .signal-card { background-color: #1e222d; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 5px solid #3d4451; }
     .data-row { background: #000000; padding: 10px; border-radius: 5px; margin: 8px 0; color: #00ff88; font-family: monospace; text-align: center; font-size: 1.1rem; border: 1px solid #333; }
+    
+    /* Panele statystyk i RSI */
     .stat-box { background-color: #161a25; border: 1px solid #2a2e39; border-radius: 8px; padding: 15px; text-align: center; min-height: 100px; }
     .stat-val { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Danych - Kompletna lista i poprawione statusy
+# 2. Baza Danych - Kompletna weryfikacja wszystkich par
 if 'db' not in st.session_state:
     st.session_state.db = [
         {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "55.4", "in": "2.850", "tp": "3.100", "sl": "2.700"},
@@ -33,17 +39,18 @@ if 'db' not in st.session_state:
 if 'active_idx' not in st.session_state:
     st.session_state.active_idx = 0
 
-st.markdown('<div class="header-box"><h3>Terminal V125 - Pełna Dynamika i Start 1D</h3></div>', unsafe_allow_html=True)
+# Nagłówek i przycisk synchronizacji
+st.markdown('<div class="header-box"><h3>Terminal V126 - Naprawione Agregaty i Start 1D</h3></div>', unsafe_allow_html=True)
 
-if st.button("🔄 SYNCHRONIZUJ DANE (10.01 - 11.01)"):
+if st.button("🔄 SYNCHRONIZUJ DANE Z KANAŁÓW (10.01 - 11.01)"):
     st.rerun()
 
 st.write("---")
 col_l, col_r = st.columns([1.3, 2.5])
 
-# --- LEWA STRONA: LISTA Z PRZYCISKAMI ---
+# --- LEWA STRONA: LISTA SYGNAŁÓW Z PRZYCISKAMI TELEGRAM ---
 with col_l:
-    st.write("### Aktywne Sygnały")
+    st.write("### Aktywne Instrumenty")
     for idx, s in enumerate(st.session_state.db):
         st.markdown(f"""
             <div class="signal-card" style="border-left-color:{s['color']}">
@@ -60,25 +67,28 @@ with col_l:
         with c2:
             st.markdown(f'<div class="tg-btn"><a href="{s["tg"]}" target="_blank">✈️ TELEGRAM</a></div>', unsafe_allow_html=True)
 
-# --- PRAWA STRONA: NAPRAWIONE AGREGATY I ZEGARY ---
+# --- PRAWA STRONA: DYNAMICZNE AGREGATY, RSI I ZEGARY ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
     
-    # Interwał startowy: 1D
+    # DYNAMICZNA LOGIKA: Mapowanie koloru na sygnał (Fix błędu "ANALIZA")
+    display_type = "KUPNO" if cur['color'] == "#00ff88" else "SPRZEDAŻ"
+    
+    # Interwał startowy ustawiony na 1D
     tf = st.select_slider("Wybierz interwał (start: 1D):", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"], value="1D")
 
-    # Dynamiczne okna agregatów - teraz pokazują sygnał zamiast tekstu "ANALIZA"
+    # Trzy niezależne okna: Investing, TradingView i RSI
     r1, r2, r3 = st.columns(3)
     with r1:
-        st.markdown(f'<div class="stat-box"><small>Investing ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{cur["type"]}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><small>Investing ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{display_type}</div></div>', unsafe_allow_html=True)
     with r2:
-        st.markdown(f'<div class="stat-box"><small>TradingView ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{cur["type"]}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><small>TradingView ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{display_type}</div></div>', unsafe_allow_html=True)
     with r3:
         st.markdown(f'<div class="stat-box" style="border-color:#3498db;"><small>RSI (14) {cur["pair"]}</small><br><div class="stat-val" style="color:#3498db;">{cur["rsi"]}</div></div>', unsafe_allow_html=True)
 
     st.markdown(f"<center><h4>Analiza techniczna dla {cur['pair']} ({tf})</h4></center>", unsafe_allow_html=True)
     
-    # Widget 3 zegarów - tryb multiple
+    # Widget 3 zegarów technicznych - Fix dla NATGAS
     components.html(f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
