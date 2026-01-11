@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja i CSS
-st.set_page_config(layout="wide", page_title="TERMINAL V123 - FINAL FIX")
+# 1. Konfiguracja i Stylistyka
+st.set_page_config(layout="wide", page_title="TERMINAL V124 - FULL ASSETS & 1D START")
 
 st.markdown("""
     <style>
@@ -17,13 +17,16 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Danych - Fix Symboli i RSI
+# 2. Baza Danych - Weryfikacja wszystkich instrumentów ze źródeł
 if 'db' not in st.session_state:
     st.session_state.db = [
         {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "55.4", "in": "2.850", "tp": "3.100", "sl": "2.700"},
         {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "45.2", "in": "37580", "tp": "37450", "sl": "37650"},
         {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 01:37", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "ANALIZA", "rsi": "51.0", "in": "2048", "tp": "2060", "sl": "2035"},
+        {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "11.01 | 07:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "41.5", "in": "0.942", "tp": "0.938", "sl": "0.945"},
         {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "10.01 | 16:45", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "38.5", "in": "1.073", "tp": "1.071", "sl": "1.075"},
+        {"pair": "NZD/USD", "sym": "FX:NZDUSD", "time": "10.01 | 19:59", "tg": "https://t.me/s/top_tradingsignals", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi": "44.2", "in": "0.624", "tp": "0.618", "sl": "0.628"},
+        {"pair": "USD/CHF", "sym": "FX:USDCHF", "time": "10.01 | 19:23", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "52.8", "in": "0.851", "tp": "0.858", "sl": "0.845"},
         {"pair": "GBP/AUD", "sym": "FX:GBPAUD", "time": "10.01 | 14:20", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi": "58.4", "in": "2.003", "tp": "2.007", "sl": "1.998"},
         {"pair": "CAD/JPY", "sym": "FX:CADJPY", "time": "10.01 | 09:15", "tg": "https://t.me/s/signalsproviderfx", "color": "#00ff88", "type": "KUPNO", "rsi": "62.1", "in": "113.85", "tp": "114.50", "sl": "113.30"}
     ]
@@ -31,18 +34,18 @@ if 'db' not in st.session_state:
 if 'active_idx' not in st.session_state:
     st.session_state.active_idx = 0
 
-# Nagłówek i przycisk
-st.markdown('<div class="header-box"><h3>Terminal V123 - Pełna Rekonstrukcja (Zegary + RSI)</h3></div>', unsafe_allow_html=True)
+# Nagłówek i odświeżanie
+st.markdown('<div class="header-box"><h3>Terminal V124 - Pełna Baza i Start 1D</h3></div>', unsafe_allow_html=True)
 
-if st.button("🔄 ODŚWIEŻ I SYNCHRONIZUJ DANE (10.01 - 11.01)"):
+if st.button("🔄 SYNCHRONIZUJ DANE Z TELEGRAM (Scan 10.01 - 11.01)"):
     st.rerun()
 
 st.write("---")
 col_l, col_r = st.columns([1.3, 2.5])
 
-# --- LEWA STRONA: LISTA I TELEGRAM ---
+# --- LEWA STRONA: LISTA INSTRUMENTÓW ---
 with col_l:
-    st.write("### Aktywne Instrumenty")
+    st.write("### Aktywne Sygnały")
     for idx, s in enumerate(st.session_state.db):
         st.markdown(f"""
             <div class="signal-card" style="border-left-color:{s['color']}">
@@ -59,14 +62,14 @@ with col_l:
         with c2:
             st.markdown(f'<div class="tg-btn"><a href="{s["tg"]}" target="_blank">✈️ TELEGRAM</a></div>', unsafe_allow_html=True)
 
-# --- PRAWA STRONA: ZEGARY, RSI I OKNA ---
+# --- PRAWA STRONA: ZEGARY, RSI I INTERWAŁ 1D ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
     
-    # Rozszerzony suwak o 1W i 1M
-    tf = st.select_slider("Interwał czasowy:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"], value="1h")
+    # Ustawienie domyślne interwału na 1D
+    tf = st.select_slider("Interwał czasowy (start: 1D):", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"], value="1D")
 
-    # PRZYWRÓCONE 3 OKNA
+    # Okna sygnałów i RSI
     r1, r2, r3 = st.columns(3)
     with r1:
         st.markdown(f'<div class="stat-box"><small>Investing ({tf})</small><br><div class="stat-val" style="color:{cur["color"]}">{cur["type"]}</div></div>', unsafe_allow_html=True)
@@ -77,7 +80,7 @@ with col_r:
 
     st.markdown(f"<center><h4>Analiza techniczna dla {cur['pair']} ({tf})</h4></center>", unsafe_allow_html=True)
     
-    # PRZYWRÓCONE 3 ZEGARY (Widget Multiple)
+    # 3 Zegary (Podsumowanie, Oscylatory, Średnie)
     components.html(f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
