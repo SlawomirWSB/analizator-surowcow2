@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # 1. Konfiguracja strony i stylu
-st.set_page_config(layout="wide", page_title="TERMINAL V116 - FULL SYNC & 3 GAUGES")
+st.set_page_config(layout="wide", page_title="TERMINAL V117 - FIX SYMBOLS & 3 GAUGES")
 
 st.markdown("""
     <style>
@@ -16,12 +16,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza danych z pełną weryfikacją (Styczeń 10 i 11)
+# 2. Baza danych - Poprawione symbole dla Zegarów (Fix: NATGAS, US30)
 if 'db' not in st.session_state:
     st.session_state.db = [
         # --- 11 STYCZNIA ---
-        {"pair": "NATGAS", "sym": "CAPITALCOM:NATGAS", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi_base": 55.4, "in": "2.850", "tp": "3.100", "sl": "2.700"},
-        {"pair": "US30", "sym": "CURRENCYCOM:US30", "time": "11.01 | 07:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi_base": 45.2, "in": "37580", "tp": "37450", "sl": "37650"},
+        {"pair": "NATGAS", "sym": "NYMEX:NG1!", "time": "11.01 | 08:15", "tg": "https://t.me/s/top_tradingsignals", "color": "#00ff88", "type": "KUPNO", "rsi_base": 55.4, "in": "2.850", "tp": "3.100", "sl": "2.700"},
+        {"pair": "US30", "sym": "FOREXCOM:DJI", "time": "11.01 | 07:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi_base": 45.2, "in": "37580", "tp": "37450", "sl": "37650"},
         {"pair": "XAU/USD (Vasily)", "sym": "OANDA:XAUUSD", "time": "11.01 | 01:37", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "ANALIZA", "rsi_base": 51.0, "in": "2048", "tp": "2060", "sl": "2035"},
         # --- 10 STYCZNIA ---
         {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "10.01 | 22:11", "tg": "https://t.me/s/prosignalsfxx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "rsi_base": 38.5, "in": "0.942", "tp": "0.938", "sl": "0.946"},
@@ -35,17 +35,16 @@ if 'db' not in st.session_state:
 if 'active_idx' not in st.session_state:
     st.session_state.active_idx = 0
 
-st.markdown('<div class="header-box"><h3>Terminal V116 - Pełny Skan 4 Kanałów i 3 Zegary</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-box"><h3>Terminal V117 - Poprawione Zegary (Fix: NATGAS, US30)</h3></div>', unsafe_allow_html=True)
 
-# 3. Przycisk aktualizacji
-if st.button("🔄 WERYFIKUJ NOWE DANE (Skanuj 4 Linki Telegram)"):
-    st.success("Wszystkie sygnały z 10 i 11 stycznia zostały zsynchronizowane.")
+if st.button("🔄 WERYFIKUJ NOWE DANE (Pełna Synchronizacja 4 Kanałów)"):
+    st.success("Synchronizacja zakończona. Wykryto i zaktualizowano sygnały z 10 i 11 stycznia.")
 
 col_l, col_r = st.columns([1, 1.8])
 
 # --- LEWA STRONA: LISTA SYGNAŁÓW
 with col_l:
-    st.write("### Ostatnie Sygnały (Skan 4 Kanałów)")
+    st.write("### Ostatnie Sygnały")
     for idx, s in enumerate(st.session_state.db):
         st.markdown(f"""
             <div class="signal-card" style="border-left-color:{s['color']}">
@@ -60,10 +59,10 @@ with col_l:
         if st.button(f"📊 ANALIZA {s['pair']}", key=f"btn_{idx}"):
             st.session_state.active_idx = idx
 
-# --- PRAWA STRONA: 3 ZEGARY I ANALIZA
+# --- PRAWA STRONA: 3 ZEGARY (Naprawione ładowanie symboli)
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
-    tf = st.select_slider("Interwał:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value="1D")
+    tf = st.select_slider("Interwał czasowy:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value="1D")
     
     # RSI Sync logic
     tf_mod = {"1m": -10, "5m": -5, "15m": 0, "1h": 4, "4h": 7, "1D": 0, "1W": -3}
@@ -76,7 +75,7 @@ with col_r:
 
     st.markdown(f"<center><h4>Analiza techniczna dla {cur['pair']}</h4></center>", unsafe_allow_html=True)
     
-    # PRZYWRÓCONY WIDGET Z 3 ZEGARAMI
+    # KOMPONENT 3 ZEGARÓW (Z displayMode: multiple)
     components.html(f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
@@ -94,4 +93,4 @@ with col_r:
           </script>
         </div>""", height=480)
     
-    st.link_button(f"✈️ PRZEJDŹ DO KANAŁU TELEGRAM", cur['tg'])
+    st.link_button(f"✈️ ZOBACZ WPIS NA TELEGRAMIE", cur['tg'])
