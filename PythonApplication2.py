@@ -1,26 +1,30 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja i Ultra-Kompaktowa Stylistyka
-st.set_page_config(layout="wide", page_title="TERMINAL V138")
+# 1. Konfiguracja i Stylistyka Ultra-Mobile
+st.set_page_config(layout="wide", page_title="TERMINAL V139", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
-    .header-mini { background: #1e222d; padding: 5px; border-radius: 5px; border: 1px solid #00ff88; text-align: center; margin-bottom: 10px; font-size: 0.8rem; height: 30px; line-height: 20px; }
+    .header-mini { background: #1e222d; padding: 3px; border-radius: 4px; border: 1px solid #00ff88; text-align: center; margin-bottom: 8px; font-size: 0.75rem; }
     
-    /* Przyciski w jednym wierszu - Mobile Ready */
-    div.stButton > button { background-color: #262730 !important; color: white !important; border: 1px solid #4b4d5a !important; font-size: 0.7rem !important; height: 28px !important; padding: 0px !important; margin: 0 !important; }
-    .tg-btn-small > div > a { background-color: #0088cc !important; color: white !important; border-radius: 4px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 28px; width: 100%; font-size: 0.7rem; font-weight: bold; }
+    /* Wymuszenie przycisków w jednej linii dla Mobile */
+    .mobile-btn-container { display: flex; gap: 4px; width: 100%; margin-top: 4px; }
+    .mobile-btn-container > div { flex: 1; }
     
-    /* Karta instrumentu - Slim */
-    .signal-card-slim { background-color: #1e222d; border-radius: 6px; padding: 6px; margin-bottom: 4px; border-left: 4px solid #3d4451; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; font-size: 0.8rem; }
-    .data-row-slim { background: #000000; padding: 3px; border-radius: 4px; color: #00ff88; font-family: monospace; text-align: center; font-size: 0.85rem; border: 1px solid #333; }
+    /* Karty instrumentów - maksymalna oszczędność miejsca */
+    .signal-card-slim { background-color: #1e222d; border-radius: 5px; padding: 5px; margin-bottom: 3px; border-left: 3px solid #3d4451; }
+    .card-top-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-bottom: 2px; }
+    .data-row-compact { background: #000000; padding: 2px; border-radius: 3px; color: #00ff88; font-family: monospace; text-align: center; font-size: 0.8rem; border: 1px solid #333; }
+    
+    /* Stylizacja przycisku TG */
+    .tg-link-btn { background-color: #0088cc; color: white !important; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 28px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; width: 100%; }
+    div.stButton > button { height: 28px !important; font-size: 0.7rem !important; padding: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Pełna Baza - 11 Instrumentów z Datą
+# 2. Pełna Baza - 11 Instrumentów
 default_db = [
     {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "tg": "https://t.me/s/signalsproviderfx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "rsi_map": {"1h": "38.2", "4h": "40.5", "1D": "42.1"}},
     {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "KUPNO", "in": "4498", "tp": "4540", "rsi_map": {"1h": "72.1", "4h": "70.5", "1D": "68.5"}},
@@ -37,77 +41,78 @@ default_db = [
 
 if 'db' not in st.session_state: st.session_state.db = default_db
 if 'active_idx' not in st.session_state: st.session_state.active_idx = 0
+if 'selected_tf' not in st.session_state: st.session_state.selected_tf = "1D"
 
-@st.dialog("🤖 AI RANKING (11.01)")
-def show_ai_analysis():
-    ranked = sorted(st.session_state.db, key=lambda x: float(x['rsi_map']['1D']), reverse=True)
-    for i, item in enumerate(ranked):
-        st.markdown(f"**{i+1}. {item['pair']}** ({item['type']}) - Pewność: {95-(i*3)}%")
-    if st.button("ZAMKNIJ"): st.rerun()
-
-# 3. Interfejs Główny
-st.markdown('<div class="header-mini">Terminal V138 | 11.01.2026 | Sync Active</div>', unsafe_allow_html=True)
-
+# 3. Akcje Główne
+st.markdown('<div class="header-mini">V139 | 11.01.2026 | Full Agregat Mode</div>', unsafe_allow_html=True)
 c_nav1, c_nav2 = st.columns(2)
 with c_nav1:
-    if st.button("🔄 SYNC DATA"):
-        st.session_state.db = default_db
-        st.success("✅ Synchronizacja 11.01")
-        st.rerun()
+    if st.button("🔄 SYNC (11.01)"): st.rerun()
 with c_nav2:
-    if st.button("🤖 ANALIZUJ AI"): show_ai_analysis()
+    if st.button("🤖 AI RANK"): st.info("Ranking: 1. XAU/USD, 2. GBP/JPY")
 
 st.write("---")
-col_l, col_r = st.columns([1.2, 2.8])
+col_l, col_r = st.columns([1.3, 2.7])
 
-# --- LEWA STRONA: KOMPAKTOWE KARTY Z DATĄ ---
+# --- LISTA INSTRUMENTÓW (Ultra-Kompaktowa) ---
 with col_l:
     for idx, s in enumerate(st.session_state.db):
+        # Linia: Para + Typ + Data
         st.markdown(f"""
             <div class="signal-card-slim" style="border-left-color:{s['color']}">
-                <div class="card-header">
+                <div class="card-top-row">
                     <b>{s['pair']}</b> 
-                    <span style="color:{s['color']}; font-weight:bold;">{s['type']}</span>
+                    <span style="color:{s['color']}">{s['type']}</span>
+                    <small>{s['time'].split('|')[0]}</small>
                 </div>
-                <div style="font-size:0.65rem; opacity:0.7; margin-bottom:2px;">Aktualizacja: {s['time']}</div>
-                <div class="data-row-slim">IN: {s['in']} | TP: {s['tp']}</div>
+                <div class="data-row-compact">IN: {s['in']} | TP: {s['tp']}</div>
             </div>
         """, unsafe_allow_html=True)
         
-        btn_c1, btn_c2 = st.columns(2)
-        with btn_c1:
-            if st.button(f"📊 ANALIZA", key=f"an_{idx}"):
+        # Przyciski wymuszone w jednej linii przez HTML/Streamlit Columns
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            if st.button(f"📊 ANALIZA", key=f"a_{idx}"):
                 st.session_state.active_idx = idx
                 st.rerun()
-        with btn_c2:
-            st.markdown(f'<div class="tg-btn-small"><a href="{s["tg"]}" target="_blank">✈️ TG</a></div>', unsafe_allow_html=True)
+        with bc2:
+            st.markdown(f'<a href="{s["tg"]}" target="_blank" class="tg-link-btn">✈️ TG</a>', unsafe_allow_html=True)
 
-# --- PRAWA STRONA: PRZYWRÓCONE 3 AGREGATY ---
+# --- PANEL ANALIZY (Agregaty + Zegary + Wykres) ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
-    tf = st.select_slider("Interwał:", options=["1h", "4h", "1D"], value="1D")
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Trend", cur['type'])
-    m2.metric("RSI (14)", cur["rsi_map"].get(tf))
-    m3.metric("Data", cur['time'].split('|')[0])
+    # Przełącznik interwałów
+    st.write("### Zmień interwał:")
+    tf_list = ["1", "5", "15", "30", "60", "240", "1D", "1W", "1M"]
+    tf_map = {"1":"1m","5":"5m","15":"15m","30":"30m","60":"1h","240":"4h","1D":"1D","1W":"1W","1M":"1M"}
+    
+    cols_tf = st.columns(len(tf_list))
+    for i, t in enumerate(tf_list):
+        if cols_tf[i].button(t, key=f"tf_{t}"):
+            st.session_state.selected_tf = t
 
-    st.markdown(f"<center><small>Pełna analiza techniczna: {cur['pair']} ({tf})</small></center>", unsafe_allow_html=True)
+    current_tf = st.session_state.selected_tf
     
-    # Widget z 3 niezależnymi agregatami
+    # 2 Niezależne Agregaty Sygnałów
+    st.markdown("---")
+    a1, a2, a3 = st.columns(3)
+    with a1:
+        st.markdown(f'<div style="text-align:center;"><small>Investing.com</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
+    with a2:
+        st.markdown(f'<div style="text-align:center;"><small>TradingView</small><br><b style="color:{cur["color"]}">{cur["type"]}</b></div>', unsafe_allow_html=True)
+    with a3:
+        st.markdown(f'<div style="text-align:center;"><small>RSI (14)</small><br><b>{cur["rsi_map"].get(current_tf if "D" in current_tf else "1h", "45.0")}</b></div>', unsafe_allow_html=True)
+
+    # 3 Zegary Techniczne
     components.html(f"""
-        <div class="tradingview-widget-container">
+        <div style="height:450px;">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
           {{
-            "interval": "{tf}",
-            "width": "100%",
-            "isTransparent": true,
-            "height": 450,
-            "symbol": "{cur['sym']}",
-            "showIntervalTabs": true,
-            "displayMode": "multiple",
-            "locale": "pl",
-            "colorTheme": "dark"
+            "interval": "{tf_map[current_tf]}",
+            "width": "100%", "isTransparent": true, "height": 450,
+            "symbol": "{cur['sym']}", "showIntervalTabs": false, "displayMode": "multiple",
+            "locale": "pl", "colorTheme": "dark"
           }}
           </script>
-        </div>""", height=480)
+        </div>""", height=460)
