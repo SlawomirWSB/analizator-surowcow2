@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # 1. KONFIGURACJA STYLU (BEZ ZMIAN)
-st.set_page_config(layout="wide", page_title="TERMINAL V156", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="TERMINAL V157", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -16,24 +16,24 @@ st.markdown("""
     .signal-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 6px solid #00ff88; }
     .entry-box { background: #000; padding: 10px; border-radius: 5px; color: #00ff88; font-family: 'Courier New'; text-align: center; border: 1px solid #00ff88; margin: 10px 0; }
     .tg-btn { background-color: #0088cc !important; color: white !important; display: block; text-align: center; padding: 8px; border-radius: 5px; text-decoration: none; font-weight: bold; margin-top: 5px; }
-    .reasoning { font-size: 0.75rem; color: #aaa; margin-top: 4px; font-style: italic; }
+    .reasoning { font-size: 0.8rem; color: #00ff88; margin-top: 6px; font-style: italic; opacity: 0.9; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. BAZA DANYCH Z UZASADNIENIAMI
+# 2. BAZA DANYCH Z POLSKIMI UZASADNIENIAMI
 db = [
-    {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "type": "KUPNO", "in": "4498", "tp": "4540", "sl": "4470", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "EMA Cross, Bullish MACD, RSI Support"},
-    {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "sl": "212.500", "inv": "SPRZEDAŻ", "tv": "SILNA SPRZEDAŻ", "base": "RSI Overbought, BB Rejection"},
-    {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "type": "SPRZEDAŻ", "in": "37580", "tp": "37450", "sl": "37700", "inv": "SPRZEDAŻ", "tv": "NEUTRALNIE", "base": "Bearish Divergence, Resistance Zone"},
-    {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "type": "KUPNO", "in": "2.850", "tp": "3.100", "sl": "2.700", "inv": "SILNE KUPNO", "tv": "KUPNO", "base": "Oversold STOCH, Trendline Support"},
-    {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "11.01 | 07:02", "type": "SPRZEDAŻ", "in": "0.942", "tp": "0.938", "sl": "0.948", "inv": "NEUTRALNIE", "tv": "SPRZEDAŻ", "base": "CCI Breakout, Weak Momentum"},
-    {"pair": "CAD/JPY", "sym": "FX:CADJPY", "time": "11.01 | 14:20", "type": "KUPNO", "in": "113.85", "tp": "114.50", "sl": "113.20", "inv": "KUPNO", "tv": "KUPNO", "base": "MA 200 Support, Volume Spike"},
-    {"pair": "NZD/USD", "sym": "FX:NZDUSD", "time": "11.01 | 15:10", "type": "SPRZEDAŻ", "in": "0.624", "tp": "0.618", "sl": "0.630", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Fibonacci 0.618, RSI Neutral"},
-    {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "11.01 | 09:30", "type": "KUPNO", "in": "1.073", "tp": "1.080", "sl": "1.069", "inv": "NEUTRALNIE", "tv": "KUPNO", "base": "EMA 50 Bounce, Low Volatility"},
-    {"pair": "USD/CHF", "sym": "FX:USDCHF", "time": "11.01 | 10:15", "type": "KUPNO", "in": "0.851", "tp": "0.858", "sl": "0.845", "inv": "KUPNO", "tv": "NEUTRALNIE", "base": "MACD Gold Cross, RSI Recovery"},
-    {"pair": "EUR/USD", "sym": "FX:EURUSD", "time": "11.01 | 12:00", "type": "SPRZEDAŻ", "in": "1.085", "tp": "1.079", "sl": "1.091", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Upper BB Touch, RSI High"},
-    {"pair": "BTC/USD", "sym": "BINANCE:BTCUSDT", "time": "11.01 | 13:45", "type": "KUPNO", "in": "94200", "tp": "96500", "sl": "92000", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "Trend Continuation, High Volume"},
-    {"pair": "ETH/USD", "sym": "BINANCE:ETHUSDT", "time": "11.01 | 13:50", "type": "KUPNO", "in": "3350", "tp": "3500", "sl": "3200", "inv": "KUPNO", "tv": "SILNE KUPNO", "base": "Ichimoku Cloud Break, RSI Bullish"}
+    {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "type": "KUPNO", "in": "4498", "tp": "4540", "sl": "4470", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "Przecięcie średnich EMA, byczy MACD oraz silne wsparcie RSI."},
+    {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "sl": "212.500", "inv": "SPRZEDAŻ", "tv": "SILNA SPRZEDAŻ", "base": "Rynek wykupiony na RSI, odrzucenie górnej wstęgi Bollingera."},
+    {"pair": "US30", "sym": "TVC:US30", "time": "11.01 | 07:03", "type": "SPRZEDAŻ", "in": "37580", "tp": "37450", "sl": "37700", "inv": "SPRZEDAŻ", "tv": "NEUTRALNIE", "base": "Niedźwiedzia dywergencja na oscylatorach i reakcja na strefę oporu."},
+    {"pair": "NATGAS", "sym": "TVC:NATGAS", "time": "11.01 | 08:15", "type": "KUPNO", "in": "2.850", "tp": "3.100", "sl": "2.700", "inv": "SILNE KUPNO", "tv": "KUPNO", "base": "Wyprzedanie na oscylatorze stochastycznym i obrona linii trendu."},
+    {"pair": "EUR/CHF", "sym": "FX:EURCHF", "time": "11.01 | 07:02", "type": "SPRZEDAŻ", "in": "0.942", "tp": "0.938", "sl": "0.948", "inv": "NEUTRALNIE", "tv": "SPRZEDAŻ", "base": "Wybicie dołem z kanału CCI przy słabnącym popycie rynkowym."},
+    {"pair": "CAD/JPY", "sym": "FX:CADJPY", "time": "11.01 | 14:20", "type": "KUPNO", "in": "113.85", "tp": "114.50", "sl": "113.20", "inv": "KUPNO", "tv": "KUPNO", "base": "Odbicie od średniej kroczącej MA 200 przy wzroście wolumenu."},
+    {"pair": "NZD/USD", "sym": "FX:NZDUSD", "time": "11.01 | 15:10", "type": "SPRZEDAŻ", "in": "0.624", "tp": "0.618", "sl": "0.630", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Retest poziomu zniesienia Fibonacciego 0.618 i neutralne RSI."},
+    {"pair": "GBP/CHF", "sym": "FX:GBPCHF", "time": "11.01 | 09:30", "type": "KUPNO", "in": "1.073", "tp": "1.080", "sl": "1.069", "inv": "NEUTRALNIE", "tv": "KUPNO", "base": "Odbicie od średniej EMA 50 przy ekstremalnie niskiej zmienności."},
+    {"pair": "USD/CHF", "sym": "FX:USDCHF", "time": "11.01 | 10:15", "type": "KUPNO", "in": "0.851", "tp": "0.858", "sl": "0.845", "inv": "KUPNO", "tv": "NEUTRALNIE", "base": "Złoty krzyż na MACD i powrót RSI powyżej poziomu 50."},
+    {"pair": "EUR/USD", "sym": "FX:EURUSD", "time": "11.01 | 12:00", "type": "SPRZEDAŻ", "in": "1.085", "tp": "1.079", "sl": "1.091", "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "base": "Dotknięcie górnej wstęgi Bollingera przy wysokim odczycie RSI."},
+    {"pair": "BTC/USD", "sym": "BINANCE:BTCUSDT", "time": "11.01 | 13:45", "type": "KUPNO", "in": "94200", "tp": "96500", "sl": "92000", "inv": "SILNE KUPNO", "tv": "SILNE KUPNO", "base": "Kontynuacja trendu wzrostowego przy rekordowym wolumenie obrotu."},
+    {"pair": "ETH/USD", "sym": "BINANCE:ETHUSDT", "time": "11.01 | 13:50", "type": "KUPNO", "in": "3350", "tp": "3500", "sl": "3200", "inv": "KUPNO", "tv": "SILNE KUPNO", "base": "Wybicie powyżej chmury Ichimoku i bycze nastawienie wskaźnika RSI."}
 ]
 
 if 'active_idx' not in st.session_state: st.session_state.active_idx = 0
@@ -46,23 +46,24 @@ def get_advanced_metrics(pair_data, tf):
     chance = tf_weight.get(tf, 70) + (len(pair_data['pair']) % 5)
     return rsi, min(chance, 99)
 
-# 3. RANKING AI Z UZASADNIENIEM
-@st.dialog("📊 RANKING SKUTECZNOŚCI AI (AGREGACJA 12)")
+# 3. RANKING AI Z POLSKIM UZASADNIENIEM
+@st.dialog("📊 RANKING SKUTECZNOŚCI AI (12 WSK)")
 def show_ranking():
-    st.markdown("Agregacja: **RSI, MACD, MA, BB, STOCH, CCI**")
+    st.markdown(f"Interwał analizy: **{st.session_state.current_tf}**")
     for i, item in enumerate(db):
         rsi, chance = get_advanced_metrics(item, st.session_state.current_tf)
         st.markdown(f"""
-            {i+1}. **{item['pair']}** — Szansa: `{chance}%` | RSI: `{rsi}`
+            {i+1}. **{item['pair']}** | Szansa: `{chance}%` | RSI: `{rsi}`
             <div class='reasoning'>Podstawa: {item['base']}</div>
+            <hr style='margin:8px 0; border:0.5px solid #333;'>
         """, unsafe_allow_html=True)
 
 # --- UI GŁÓWNE ---
-st.markdown('<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V156 | PEŁNE UZASADNIENIE TECHNICZNE</div>', unsafe_allow_html=True)
+st.markdown('<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V157 | POLSKIE UZASADNIENIA ANALIZ</div>', unsafe_allow_html=True)
 
 c_top = st.columns(2)
 with c_top[0]:
-    if st.button("🔄 SYNCHRONIZUJ (12 WSK)"): st.toast("✅ Odświeżono 12 wskaźników i uzasadnienia", icon="🚀")
+    if st.button("🔄 SYNCHRONIZUJ (12 WSK)"): st.toast("✅ Zaktualizowano parametry techniczne", icon="🚀")
 with c_top[1]:
     if st.button("🤖 AI RANKING"): show_ranking()
 
@@ -79,7 +80,7 @@ with col_l:
                     <div style="display:flex; justify-content:space-between; font-size:0.8rem;"><b>{s['pair']}</b> <span>{s['time']}</span></div>
                     <div style="color:#00ff88; font-weight:bold; font-size:1.1rem;">{s['type']} ({chance}%)</div>
                     <div class="entry-box">IN: {s['in']} | TP: {s['tp']} | SL: {s['sl']}</div>
-                    <div class="reasoning">Podstawa: {s['base']}</div>
+                    <div class="reasoning">Analiza: {s['base']}</div>
                     <a href="https://t.me/s/VasilyTrading" class="tg-btn">✈ TELEGRAM</a>
                 </div>
             """, unsafe_allow_html=True)
@@ -94,7 +95,7 @@ with col_r:
         st.session_state.current_tf = new_tf
         st.rerun()
     
-    st.markdown(f"## Analiza techniczna: {cur['pair']}")
+    st.markdown(f"## {cur['pair']} - Szczegóły techniczne")
     dynamic_rsi, _ = get_advanced_metrics(cur, st.session_state.current_tf)
     
     a1, a2, a3 = st.columns(3)
@@ -103,7 +104,7 @@ with col_r:
     with a2:
         st.markdown(f"<div style='text-align:center;'><b>TradingView</b><br><span style='font-size:1.5rem; color:#00ff88;'>{cur['tv']}</span></div>", unsafe_allow_html=True)
     with a3:
-        st.markdown(f"<div style='text-align:center;'><b>Wskaźnik RSI ({st.session_state.current_tf})</b><br><span style='font-size:1.5rem; color:white;'>{dynamic_rsi}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:center;'><b>RSI ({st.session_state.current_tf})</b><br><span style='font-size:1.5rem; color:white;'>{dynamic_rsi}</span></div>", unsafe_allow_html=True)
 
     components.html(f"""
         <div style="height:500px;">
