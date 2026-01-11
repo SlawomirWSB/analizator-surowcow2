@@ -1,22 +1,27 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Konfiguracja i Stylistyka
-st.set_page_config(layout="wide", page_title="TERMINAL V136 - AI ANALYSIS")
+# 1. Konfiguracja i Ultra-Kompaktowa Stylistyka
+st.set_page_config(layout="wide", page_title="TERMINAL V137")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
-    .header-box { background: #1e222d; padding: 15px; border-radius: 10px; border: 1px solid #00ff88; text-align: center; margin-bottom: 20px; }
-    div.stButton > button { background-color: #262730 !important; color: #ffffff !important; border: 1px solid #4b4d5a !important; font-weight: bold !important; width: 100%; height: 40px; }
-    .ai-btn > div > button { background-color: #7d2ae8 !important; color: white !important; border: 1px solid #9d50f0 !important; font-size: 1.1rem !important; }
-    .tg-btn > div > a { background-color: #0088cc !important; color: #ffffff !important; font-weight: bold !important; border-radius: 5px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 40px; width: 100%; font-size: 0.9rem; }
-    .signal-card { background-color: #1e222d; border-radius: 8px; padding: 15px; margin-bottom: 5px; border-left: 5px solid #3d4451; }
-    .data-row { background: #000000; padding: 10px; border-radius: 5px; margin: 8px 0; color: #00ff88; font-family: monospace; text-align: center; font-size: 1.1rem; border: 1px solid #333; }
+    /* Zmniejszony nagłówek */
+    .header-mini { background: #1e222d; padding: 5px; border-radius: 5px; border: 1px solid #00ff88; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
+    
+    /* Kompaktowe przyciski obok siebie */
+    div.stButton > button { background-color: #262730 !important; color: white !important; border: 1px solid #4b4d5a !important; font-size: 0.75rem !important; height: 32px !important; padding: 0px !important; }
+    .tg-btn-small > div > a { background-color: #0088cc !important; color: white !important; border-radius: 4px; text-decoration: none; display: flex; align-items: center; justify-content: center; height: 32px; width: 100%; font-size: 0.75rem; font-weight: bold; }
+    
+    /* Jednowierszowa karta instrumentu */
+    .signal-card-slim { background-color: #1e222d; border-radius: 6px; padding: 8px; margin-bottom: 5px; border-left: 4px solid #3d4451; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.85rem; }
+    .data-row-slim { background: #000000; padding: 4px; border-radius: 4px; color: #00ff88; font-family: monospace; text-align: center; font-size: 0.9rem; border: 1px solid #333; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Baza Danych - 11 Instrumentów
+# 2. Pełna Baza - 11 Instrumentów
 default_db = [
     {"pair": "GBP/JPY", "sym": "FX:GBPJPY", "time": "11.01 | 11:49", "tg": "https://t.me/s/signalsproviderfx", "color": "#ff4b4b", "type": "SPRZEDAŻ", "in": "211.700", "tp": "208.935", "rsi_map": {"1h": "38.2", "4h": "40.5", "1D": "42.1"}},
     {"pair": "XAU/USD", "sym": "OANDA:XAUUSD", "time": "11.01 | 07:44", "tg": "https://t.me/s/VasilyTrading", "color": "#00ff88", "type": "KUPNO", "in": "4498", "tp": "4540", "rsi_map": {"1h": "72.1", "4h": "70.5", "1D": "68.5"}},
@@ -31,91 +36,81 @@ default_db = [
     {"pair": "EUR/GBP", "sym": "FX:EURGBP", "time": "10.01 | 21:03", "tg": "https://t.me/s/prosignalsfxx", "color": "#00ff88", "type": "KUPNO", "in": "0.860", "tp": "0.865", "rsi_map": {"1h": "53.2", "4h": "54.0", "1D": "54.1"}}
 ]
 
-if 'db' not in st.session_state:
-    st.session_state.db = default_db
-if 'active_idx' not in st.session_state:
-    st.session_state.active_idx = 0
+if 'db' not in st.session_state: st.session_state.db = default_db
+if 'active_idx' not in st.session_state: st.session_state.active_idx = 0
 
-# --- FUNKCJA OKNA AI ---
-@st.dialog("Podsumowanie AI - Ranking Prawdopodobieństwa")
+@st.dialog("Ranking AI (11.01)")
 def show_ai_analysis():
-    st.write(f"### Analiza Techniczna - {st.session_state.db[0]['time'].split('|')[0]}")
-    st.write("Ranking wygenerowany na podstawie RSI, trendu i wolumenu z kanałów Telegram.")
-    
-    # Przykładowe sortowanie: XAU/USD i GBP/JPY mają najwyższy priorytet
     ranked = sorted(st.session_state.db, key=lambda x: float(x['rsi_map']['1D']), reverse=True)
-    
     for i, item in enumerate(ranked):
-        score = 95 - (i * 4)
-        risk = "NISKIE" if score > 85 else "ŚREDNIE"
-        color = "#00ff88" if item['type'] == "KUPNO" else "#ff4b4b"
-        
-        st.markdown(f"""
-        <div style="border: 1px solid #333; padding: 10px; border-radius: 5px; margin-bottom: 10px; background: #161a25;">
-            <div style="display:flex; justify-content:space-between;">
-                <b>{i+1}. {item['pair']}</b>
-                <span style="color:{color}">{item['type']}</span>
-            </div>
-            <div style="font-size: 0.8rem; margin: 5px 0;">
-                Szansa sukcesu: <b>{score}%</b> | Ryzyko: <b style="color:{'#00ff88' if risk == 'NISKIE' else '#f1c40f'}">{risk}</b>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    if st.button("ZAMKNIJ ANALIZĘ"):
-        st.rerun()
+        st.markdown(f"**{i+1}. {item['pair']}** ({item['type']}) - Szansa: {95-(i*4)}%")
+    if st.button("ZAMKNIJ"): st.rerun()
 
-# --- NAGŁÓWEK I PRZYCISKI GŁÓWNE ---
-st.markdown('<div class="header-box"><h3>Terminal V136 - AI Analysis & Live Sync</h3></div>', unsafe_allow_html=True)
+# 3. Interfejs
+st.markdown('<div class="header-mini">Terminal V137 - Multi-Sync (11.01)</div>', unsafe_allow_html=True)
 
-col_h1, col_h2 = st.columns([1, 1])
-with col_h1:
-    if st.button("🔄 SYNCHRONIZUJ I POBIERZ DANE"):
+c_top1, c_top2, c_top3 = st.columns([1, 1, 1])
+with c_top1:
+    if st.button("🔄 SYNC"):
         st.session_state.db = default_db
-        st.success("✅ POBRANO 11 POZYCJI (11.01).")
+        st.success("✅ OK (11.01)")
         st.rerun()
-with col_h2:
-    st.markdown('<div class="ai-btn">', unsafe_allow_html=True)
-    if st.button("🤖 ANALIZUJ AI (Ranking Skuteczności)"):
-        show_ai_analysis()
-    st.markdown('</div>', unsafe_allow_html=True)
+with c_top2:
+    if st.button("🤖 AI RANK"): show_ai_analysis()
 
 st.write("---")
-col_l, col_r = st.columns([1.5, 2.5])
+col_l, col_r = st.columns([1.2, 2.8])
 
-# --- LISTA INSTRUMENTÓW (Z przyciskami Telegram) ---
+# --- LEWA STRONA: KOMPAKTOWE KARTY ---
 with col_l:
-    st.write("### Aktywne Sygnały")
     for idx, s in enumerate(st.session_state.db):
         st.markdown(f"""
-            <div class="signal-card" style="border-left-color:{s['color']}">
-                <div style="display:flex; justify-content:space-between;"><b>{s['pair']}</b> <small>{s['time']}</small></div>
-                <div style="color:{s['color']}; font-weight:bold;">{s['type']}</div>
-                <div class="data-row">IN: {s['in']} | TP: {s['tp']}</div>
+            <div class="signal-card-slim" style="border-left-color:{s['color']}">
+                <div class="card-header">
+                    <b>{s['pair']}</b> 
+                    <span style="color:{s['color']}; font-weight:bold;">{s['type']}</span>
+                    <small style="opacity:0.6;">{s['time'].split('|')[1]}</small>
+                </div>
+                <div class="data-row-slim">IN: {s['in']} | TP: {s['tp']}</div>
             </div>
         """, unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button(f"📊 ANALIZA", key=f"anal_{idx}"):
+        
+        # Przyciski obok siebie w jednym wierszu
+        btn_c1, btn_c2 = st.columns(2)
+        with btn_c1:
+            if st.button(f"📊 ANALIZA", key=f"an_{idx}"):
                 st.session_state.active_idx = idx
                 st.rerun()
-        with c2:
-            st.markdown(f'<div class="tg-btn"><a href="{s["tg"]}" target="_blank">✈️ TELEGRAM</a></div>', unsafe_allow_html=True)
+        with btn_c2:
+            st.markdown(f'<div class="tg-btn-small"><a href="{s["tg"]}" target="_blank">✈️ TG</a></div>', unsafe_allow_html=True)
 
-# --- PANEL ANALIZY PRAWEJ STRONY ---
+# --- PRAWA STRONA: PRZYWRÓCENIE 3 ZEGARÓW ---
 with col_r:
     cur = st.session_state.db[st.session_state.active_idx]
-    tf = st.select_slider("Interwał RSI:", options=["1h", "4h", "1D"], value="1D")
+    tf = st.select_slider("TF:", options=["1h", "4h", "1D"], value="1D")
     
-    r1, r2, r3 = st.columns(3)
-    with r1: st.metric(f"Investing ({tf})", cur['type'])
-    with r2: st.metric(f"TradingView ({tf})", cur['type'])
-    with r3: st.metric(f"RSI (14) {tf}", cur["rsi_map"].get(tf))
+    # Metryki w jednym wierszu
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Trend", cur['type'])
+    m2.metric("RSI (14)", cur["rsi_map"].get(tf))
+    m3.metric("Status", "Aktualny")
 
-    st.markdown(f"<center><h4>Wykres Techniczny {cur['pair']}</h4></center>", unsafe_allow_html=True)
+    st.markdown(f"<center><small>Analiza techniczna: {cur['pair']} ({tf})</small></center>", unsafe_allow_html=True)
+    
+    # Przywrócenie widgetu z 3 zegarami (Podsumowanie)
     components.html(f"""
-        <div class="tradingview-widget-container" style="height:500px">
+        <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-          {{"interval": "{tf}", "width": "100%", "isTransparent": true, "height": 450, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark"}}
+          {{
+            "interval": "{tf}",
+            "width": "100%",
+            "isTransparent": true,
+            "height": 450,
+            "symbol": "{cur['sym']}",
+            "showIntervalTabs": true,
+            "displayMode": "multiple",
+            "locale": "pl",
+            "colorTheme": "dark"
+          }}
           </script>
-        </div>""", height=500)
+        </div>""", height=480)
