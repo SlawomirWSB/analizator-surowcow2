@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import random
 
 # 1. KONFIGURACJA STYLU (BEZ ZMIAN)
-st.set_page_config(layout="wide", page_title="TERMINAL V164", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="TERMINAL V165", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -53,17 +53,17 @@ def fetch_latest_data():
             })
     return full_db
 
-# 3. BEZPIECZNA INICJALIZACJA (NAPRAWA KEYERROR)
+# 3. BEZPIECZNA INICJALIZACJA (ELIMINACJA BŁĘDÓW KEYERROR)
 if 'db' not in st.session_state: 
     st.session_state.db = fetch_latest_data()
 if 'selected_date' not in st.session_state: 
     st.session_state.selected_date = datetime.now().strftime("%d.%m")
-if 'active_idx' not in st.session_state: 
-    st.session_state.active_idx = 0
+if 'active_pair' not in st.session_state: 
+    st.session_state.active_pair = st.session_state.db[0]
 if 'current_tf' not in st.session_state: 
     st.session_state.current_tf = "1h"
 
-# Filtrowanie po upewnieniu się, że klucze istnieją
+# Filtrowanie sygnałów dla wybranego dnia
 filtered_signals = [s for s in st.session_state.db if s.get('date_key') == st.session_state.selected_date]
 
 def get_advanced_metrics(pair_data, tf):
@@ -84,8 +84,8 @@ def show_ranking():
             <hr style='margin:8px 0; border:0.2px solid #444;'>
         """, unsafe_allow_html=True)
 
-# --- INTERFEJS ---
-st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V164 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
+# --- UI GŁÓWNE ---
+st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V165 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
 
 c_top = st.columns([1, 1, 1, 1, 2])
 dates = [(datetime.now() - timedelta(days=i)).strftime("%d.%m") for i in range(2, -1, -1)]
@@ -94,12 +94,16 @@ for i, d in enumerate(dates):
     with c_top[i]:
         if st.button(d, key=f"d_{d}"):
             st.session_state.selected_date = d
+            # Resetujemy aktywną parę na pierwszą dostępną w danym dniu, by uniknąć KeyError
+            new_filtered = [s for s in st.session_state.db if s.get('date_key') == d]
+            if new_filtered: st.session_state.active_pair = new_filtered[0]
             st.rerun()
 
 with c_top[3]:
     if st.button("🔄 SYNC"):
         st.session_state.db = fetch_latest_data()
         st.session_state.selected_date = datetime.now().strftime("%d.%m")
+        st.session_state.active_pair = [s for s in st.session_state.db if s['date_key'] == st.session_state.selected_date][0]
         st.rerun()
 
 with c_top[4]:
@@ -124,11 +128,11 @@ with col_l:
                 </div>
             """, unsafe_allow_html=True)
             if st.button(f"📊 ANALIZA {s['pair']}", key=f"an_{idx}"):
-                st.session_state.active_idx = st.session_state.db.index(s)
+                st.session_state.active_pair = s
                 st.rerun()
 
 with col_r:
-    cur = st.session_state.db[st.session_state.active_idx]
+    cur = st.session_state.active_pair
     st.markdown(f"## Analiza: {cur['pair']} ({cur['date_key']})")
     new_tf = st.select_slider("TF:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
     if new_tf != st.session_state.current_tf:
