@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import random
 
 # 1. KONFIGURACJA WIZUALNA
-st.set_page_config(layout="wide", page_title="TERMINAL V169", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="TERMINAL V170", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -16,112 +16,123 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. POBIERANIE I PARSOWANIE DAT Z TELEGRAM
-@st.cache_data(ttl=300)
+# 2. GENERATOR DANYCH ZMIENNYCH DLA KAŻDEGO DNIA
+@st.cache_data
 def fetch_telegram_data():
-    # Symulacja pobierania z https://t.me/s/signalsproviderfx i innych
-    assets = [("XAU/USD", "OANDA:XAUUSD"), ("GBP/JPY", "FX:GBPJPY"), ("US30", "TVC:US30"), ("NATGAS", "TVC:NATGAS")]
+    # Definiujemy różne pule instrumentów dla różnych dni
+    pools = {
+        0: [("XAU/USD", "OANDA:XAUUSD"), ("US30", "TVC:US30"), ("GBP/JPY", "FX:GBPJPY"), ("EUR/USD", "FX:EURUSD")],
+        1: [("BTC/USD", "BINANCE:BTCUSDT"), ("ETH/USD", "BINANCE:ETHUSDT"), ("NATGAS", "TVC:NATGAS"), ("US100", "TVC:NDX")],
+        2: [("EUR/CHF", "FX:EURCHF"), ("CAD/JPY", "FX:CADJPY"), ("AUD/USD", "FX:AUDUSD"), ("OIL", "TVC:USOIL")]
+    }
+    
     db = []
     now = datetime.now()
-    
     for day_off in range(3):
         target_date = now - timedelta(days=day_off)
-        date_str = target_date.strftime("%d.%m") # Np. 12.01
+        d_str = target_date.strftime("%d.%m")
+        # Wybieramy pulę na podstawie przesunięcia dnia
+        current_pool = pools.get(day_off, pools[0])
         
-        for name, sym in assets:
-            h, m = random.randint(8, 20), random.randint(0, 59)
+        for name, sym in current_pool:
+            sig_time = f"{random.randint(8, 21):02d}:{random.randint(0, 59):02d}"
             db.append({
                 "pair": name, "sym": sym, "type": random.choice(["KUPNO", "SPRZEDAŻ"]),
-                "date_key": date_str, 
-                "full_date": f"{date_str} | {h:02d}:{m:02d}",
-                "in": "4498" if "XAU" in name else "211.700",
-                "tp": "4540" if "XAU" in name else "208.935",
-                "sl": "4470" if "XAU" in name else "212.500",
-                "inv": "SILNE KUPNO", "tv": "KUPNO"
+                "date_key": d_str, 
+                "full_date": f"{d_str} | {sig_time}",
+                "in": str(random.randint(1000, 5000) / 10),
+                "tp": "PROFIT ZONE", "sl": "STOP LOSS",
+                "inv": "SILNE KUPNO", "tv": "NEUTRALNIE"
             })
     return db
 
-# 3. ZARZĄDZANIE SESJĄ I FILTROWANIEM
+# 3. SESJA I LOGIKA FILTROWANIA
 if 'db' not in st.session_state: st.session_state.db = fetch_telegram_data()
 if 'selected_date' not in st.session_state: st.session_state.selected_date = datetime.now().strftime("%d.%m")
 if 'current_tf' not in st.session_state: st.session_state.current_tf = "1h"
 
-# Filtracja sygnałów dla wybranego dnia
+# Pobieranie sygnałów dla WYBRANEGO dnia
 filtered_signals = [s for s in st.session_state.db if s['date_key'] == st.session_state.selected_date]
 
-# Bezpieczne ustawienie aktywnej pary (naprawa KeyError)
-if 'active_pair' not in st.session_state or st.session_state.active_pair['date_key'] != st.session_state.selected_date:
-    st.session_state.active_pair = filtered_signals[0] if filtered_signals else None
+# Automatyczny wybór pierwszej pary z nowej listy po zmianie dnia
+if not st.session_state.get('active_pair') or st.session_state.active_pair['date_key'] != st.session_state.selected_date:
+    if filtered_signals:
+        st.session_state.active_pair = filtered_signals[0]
 
 # --- UI ---
-st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold;">TERMINAL V169 | DATA: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold;">TERMINAL V170 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
 
 # Przyciski Dni
 c_days = st.columns([1, 1, 1, 1, 2])
 labels = ["DZISIAJ", "WCZORAJ", "PRZEDWCZORAJ"]
 for i, lab in enumerate(labels):
     d_val = (datetime.now() - timedelta(days=i)).strftime("%d.%m")
-    if c_days[i].button(f"{lab}\n({d_val})"):
+    if c_days[i].button(f"{lab}\n({d_val})", key=f"d_{i}"):
         st.session_state.selected_date = d_val
         st.rerun()
 
-if c_days[3].button("🔄 SYNC"):
-    st.session_state.db = fetch_telegram_data()
-    st.rerun()
+with c_days[3]:
+    if st.button("🔄 SYNC"):
+        st.cache_data.clear()
+        st.session_state.db = fetch_telegram_data()
+        st.rerun()
 
 col_l, col_r = st.columns([1.8, 3.2])
 
 with col_l:
-    st.subheader("Lista Sygnałów")
+    st.subheader(f"Sygnały z dnia {st.session_state.selected_date}")
     container = st.container(height=750)
     with container:
         for idx, s in enumerate(filtered_signals):
-            clr = "#00ff88" if "KUPNO" in s['type'] else "#ff4b4b"
+            t_clr = "#00ff88" if "KUPNO" in s['type'] else "#ff4b4b"
             st.markdown(f"""
                 <div class="signal-card">
-                    <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
-                        <span><b>{s['pair']}</b> <span style="color:{clr}">{s['type']}</span></span>
-                        <span style="color:#888;">{s['full_date']}</span>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span><b>{s['pair']}</b> <span style="color:{t_clr}">{s['type']}</span></span>
+                        <span style="font-size:0.75rem; color:#888;">{s['full_date']}</span>
                     </div>
-                    <div class="entry-box">IN: {s['in']} | TP: {s['tp']} | SL: {s['sl']}</div>
+                    <div class="entry-box">WEJŚCIE: {s['in']} | {s['tp']} | {s['sl']}</div>
                     <a href="https://t.me/s/VasilyTrading" class="tg-btn">✈ TELEGRAM</a>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(f"📊 ANALIZUJ {s['pair']}", key=f"btn_{idx}"):
+            if st.button(f"📊 ANALIZA {s['pair']}", key=f"an_{idx}_{s['pair']}"):
                 st.session_state.active_pair = s
                 st.rerun()
 
 with col_r:
-    if st.session_state.active_pair:
+    if st.session_state.get('active_pair'):
         cur = st.session_state.active_pair
-        st.markdown(f"### Analiza Techniczna: {cur['pair']} ({cur['date_key']})")
-        st.session_state.current_tf = st.select_slider("Interwał (TF):", options=["1m", "5m", "15m", "1h", "4h", "1D"], value=st.session_state.current_tf)
+        st.markdown(f"## {cur['pair']} - Analiza Dnia {cur['date_key']}")
+        st.session_state.current_tf = st.select_slider("Interwał:", options=["1m", "5m", "15m", "1h", "4h", "1D"], value=st.session_state.current_tf)
         
-        # Statystyki
+        # Statystyki tekstowe
         m1, m2, m3 = st.columns(3)
-        m1.metric("Investing.com", cur['inv'])
+        m1.metric("Investing", cur['inv'])
         m2.metric("TradingView", cur['tv'])
-        m3.metric("RSI (14)", "64")
+        m3.metric("RSI (14)", "58")
 
-        # PRZYWRÓCENIE 3 ZEGARÓW
+        # TRZY RÓŻNE ZEGARY (Techniczne)
         components.html(f"""
-            <div style="display: flex; justify-content: space-between; gap: 10px;">
-                <div style="width: 32%;">
+            <div style="display: flex; justify-content: space-between; gap: 5px;">
+                <div style="width: 33%;">
+                    <p style="text-align:center; color:#888; margin-bottom:0;">PODSUMOWANIE</p>
                     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
+                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "showIntervalTabs": false, "locale": "pl", "colorTheme": "dark" }}
                     </script>
                 </div>
-                <div style="width: 32%;">
+                <div style="width: 33%;">
+                    <p style="text-align:center; color:#888; margin-bottom:0;">OSCYLATORY</p>
                     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
+                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "showIntervalTabs": false, "locale": "pl", "colorTheme": "dark", "defaultColumn": "oscillators" }}
                     </script>
                 </div>
-                <div style="width: 32%;">
+                <div style="width: 33%;">
+                    <p style="text-align:center; color:#888; margin-bottom:0;">ŚREDNIE KROCZĄCE</p>
                     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
+                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "showIntervalTabs": false, "locale": "pl", "colorTheme": "dark", "defaultColumn": "moving_averages" }}
                     </script>
                 </div>
             </div>
-        """, height=400)
+        """, height=420)
     else:
-        st.info("Wybierz instrument, aby wyświetlić zegary analizy.")
+        st.warning("Brak danych dla wybranego dnia. Kliknij SYNC.")
