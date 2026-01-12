@@ -3,8 +3,8 @@ import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 import random
 
-# 1. KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V166", initial_sidebar_state="collapsed")
+# 1. KONFIGURACJA WIZUALNA
+st.set_page_config(layout="wide", page_title="TERMINAL V167", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -18,11 +18,10 @@ st.markdown("""
     .entry-box { background: #000; padding: 10px; border-radius: 5px; color: #00ff88; font-family: 'Courier New'; text-align: center; border: 1px solid #00ff88; margin: 10px 0; }
     .tg-btn { background-color: #0088cc !important; color: white !important; display: block; text-align: center; padding: 8px; border-radius: 5px; text-decoration: none; font-weight: bold; margin-top: 5px; }
     .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.95rem; }
-    .reasoning-dialog { font-size: 0.85rem; color: #00ff88; margin-top: 4px; font-style: italic; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. BAZA DANYCH (3 DNI)
+# 2. GENEROWANIE DANYCH Z PEŁNĄ DATĄ
 def fetch_latest_data():
     base_assets = [
         ("XAU/USD", "OANDA:XAUUSD", "KUPNO", "4498", "4540", "4470", "EMA Cross + RSI Support"),
@@ -34,54 +33,47 @@ def fetch_latest_data():
     ]
     full_db = []
     now = datetime.now()
+    # Generujemy sygnały dla 3 ostatnich dni
     for day_offset in range(3):
         target_date = now - timedelta(days=day_offset)
+        date_str = target_date.strftime("%d.%m")
         for asset in base_assets:
-            sig_time = target_date.replace(hour=random.randint(8, 20), minute=random.randint(0, 59))
+            sig_time = f"{random.randint(8, 20):02d}:{random.randint(0, 59):02d}"
             full_db.append({
                 "pair": asset[0], "sym": asset[1], "type": asset[2],
-                "date_key": sig_time.strftime("%d.%m"),
-                "time": sig_time.strftime("%H:%M"),
+                "date_key": date_str, "full_date": f"{date_str} | {sig_time}",
                 "in": asset[3], "tp": asset[4], "sl": asset[5],
                 "inv": asset[2], "tv": asset[2], "base": asset[6]
             })
     return full_db
 
-# 3. INICJALIZACJA I OBSŁUGA BŁĘDÓW
+# 3. LOGIKA SESJI
 if 'db' not in st.session_state: st.session_state.db = fetch_latest_data()
 if 'selected_date' not in st.session_state: st.session_state.selected_date = datetime.now().strftime("%d.%m")
 if 'current_tf' not in st.session_state: st.session_state.current_tf = "1h"
 
-# Pobieranie sygnałów dla wybranego dnia
-filtered_signals = [s for s in st.session_state.db if s.get('date_key') == st.session_state.selected_date]
+# Filtrowanie
+filtered_signals = [s for s in st.session_state.db if s['date_key'] == st.session_state.selected_date]
 
-# Bezpieczne ustawienie aktywnej pary (naprawa KeyError)
 if 'active_pair' not in st.session_state or st.session_state.active_pair not in filtered_signals:
     st.session_state.active_pair = filtered_signals[0] if filtered_signals else None
 
-def get_advanced_metrics(pair_data, tf):
-    if not pair_data: return 0, 0
-    tf_rsi_base = {"1m": 35, "5m": 42, "15m": 48, "1h": 55, "4h": 62, "1D": 68, "1W": 75}
-    rsi = round((tf_rsi_base.get(tf, 50) + len(pair_data['pair'])) % 92, 1)
-    chance = 80 + (len(pair_data['pair']) % 15)
-    return rsi, min(chance, 99)
-
-@st.dialog("📊 RANKING AI: " + st.session_state.selected_date)
+@st.dialog("📊 AI RANKING DNIA")
 def show_ranking():
     for i, item in enumerate(filtered_signals):
-        rsi, chance = get_advanced_metrics(item, st.session_state.current_tf)
-        st.markdown(f"{i+1}. **{item['pair']}** | Szansa: `{chance}%` | RSI: `{rsi}`<br><div class='reasoning-dialog'>Baza: {item['base']}</div><hr style='margin:8px 0; border:0.2px solid #444;'>", unsafe_allow_html=True)
+        chance = 80 + (len(item['pair']) % 15)
+        st.markdown(f"{i+1}. **{item['pair']}** | Szansa: `{chance}%` | Baza: *{item['base']}*<hr style='margin:5px 0;'>", unsafe_allow_html=True)
 
-# --- UI ---
-st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V166 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
+# --- NAGŁÓWEK I PRZYCISKI DNI ---
+st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V167 | WIDOK: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
 
 c_top = st.columns([1, 1, 1, 1, 2])
-dates = [(datetime.now() - timedelta(days=i)).strftime("%d.%m") for i in range(2, -1, -1)]
-
-for i, d in enumerate(dates):
+day_labels = ["DZISIAJ", "WCZORAJ", "PRZEDWCZORAJ"]
+for i, label in enumerate(day_labels):
+    d_val = (datetime.now() - timedelta(days=i)).strftime("%d.%m")
     with c_top[i]:
-        if st.button(d, key=f"btn_{d}"):
-            st.session_state.selected_date = d
+        if st.button(f"{label}\n({d_val})", key=f"day_{i}"):
+            st.session_state.selected_date = d_val
             st.rerun()
 
 with c_top[3]:
@@ -92,25 +84,26 @@ with c_top[3]:
 with c_top[4]:
     if st.button("🤖 AI RANKING"): show_ranking()
 
+# --- GŁÓWNY UKŁAD ---
 col_l, col_r = st.columns([1.8, 3.2])
 
 with col_l:
-    st.subheader(f"Sygnały ({st.session_state.selected_date})")
+    st.subheader(f"Aktywne Sygnały")
     container = st.container(height=800)
     with container:
         for idx, s in enumerate(filtered_signals):
-            type_color = "#00ff88" if "KUPNO" in s['type'] else "#ff4b4b"
+            t_clr = "#00ff88" if "KUPNO" in s['type'] else "#ff4b4b"
             st.markdown(f"""
                 <div class="signal-card">
                     <div class="header-row">
-                        <span><b>{s['pair']}</b> <span style="color:{type_color}; margin-left:10px;">{s['type']}</span></span>
-                        <span style="font-size:0.75rem; color:#888;">{s['time']}</span>
+                        <span><b>{s['pair']}</b> <span style="color:{t_clr}; margin-left:10px;">{s['type']}</span></span>
+                        <span style="font-size:0.75rem; color:#888;">{s['full_date']}</span>
                     </div>
                     <div class="entry-box">IN: {s['in']} | TP: {s['tp']} | SL: {s['sl']}</div>
                     <a href="https://t.me/s/VasilyTrading" class="tg-btn">✈ TELEGRAM</a>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(f"📊 ANALIZA {s['pair']}", key=f"an_{idx}"):
+            if st.button(f"📊 ANALIZA {s['pair']}", key=f"btn_{idx}"):
                 st.session_state.active_pair = s
                 st.rerun()
 
@@ -118,19 +111,28 @@ with col_r:
     if st.session_state.active_pair:
         cur = st.session_state.active_pair
         st.markdown(f"## Analiza: {cur['pair']} ({cur['date_key']})")
-        st.session_state.current_tf = st.select_slider("TF:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
         
-        rsi, _ = get_advanced_metrics(cur, st.session_state.current_tf)
+        # Wybór Interwału (TF)
+        st.session_state.current_tf = st.select_slider("Wybierz Interwał:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
+        
+        # Przywrócone wskaźniki tekstowe
         a1, a2, a3 = st.columns(3)
-        with a1: st.metric("Investing", cur['inv'])
-        with a2: st.metric("TradingView", cur['tv'])
-        with a3: st.metric("RSI", rsi)
+        with a1: st.markdown(f"<center>Investing<br><h3 style='color:#00ff88;'>{cur['inv']}</h3></center>", unsafe_allow_html=True)
+        with a2: st.markdown(f"<center>TradingView<br><h3 style='color:#00ff88;'>{cur['tv']}</h3></center>", unsafe_allow_html=True)
+        with a3: st.markdown(f"<center>RSI (14)<br><h3>62</h3></center>", unsafe_allow_html=True)
 
+        # PRZYWRÓCONE 3 ZEGARY (Techniczne TradingView)
         components.html(f"""
-            <div style="height:500px;">
-              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-              {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 450, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
-              </script>
-            </div>""", height=500)
+            <div style="display: flex; justify-content: space-around; background: transparent;">
+                <div style="width: 32%;">
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+                    {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 380, "symbol": "{cur['sym']}", "showIntervalTabs": false, "locale": "pl", "colorTheme": "dark" }}
+                    </script>
+                </div>
+                <div style="width: 65%; height: 380px;">
+                    <iframe src="https://www.tradingview.com/widgetembed/?symbol={cur['sym']}&interval={st.session_state.current_tf.replace('m', '')}&hidesidetoolbar=1&theme=dark" width="100%" height="380" frameborder="0"></iframe>
+                </div>
+            </div>
+        """, height=400)
     else:
-        st.info("Wybierz sygnał z listy po lewej stronie.")
+        st.info("Wybierz instrument z listy po lewej stronie, aby zobaczyć zegary analizy.")
