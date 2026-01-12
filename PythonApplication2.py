@@ -3,8 +3,8 @@ import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 import random
 
-# 1. KONFIGURACJA STYLU (BEZ ZMIAN)
-st.set_page_config(layout="wide", page_title="TERMINAL V165", initial_sidebar_state="collapsed")
+# 1. KONFIGURACJA
+st.set_page_config(layout="wide", page_title="TERMINAL V166", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -22,7 +22,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. GENEROWANIE DANYCH (MAX 3 DNI)
+# 2. BAZA DANYCH (3 DNI)
 def fetch_latest_data():
     base_assets = [
         ("XAU/USD", "OANDA:XAUUSD", "KUPNO", "4498", "4540", "4470", "EMA Cross + RSI Support"),
@@ -30,13 +30,7 @@ def fetch_latest_data():
         ("US30", "TVC:US30", "SPRZEDAŻ", "37580", "37450", "37700", "Bearish Divergence"),
         ("NATGAS", "TVC:NATGAS", "KUPNO", "2.850", "3.100", "2.700", "Trendline Support"),
         ("EUR/CHF", "FX:EURCHF", "SPRZEDAŻ", "0.942", "0.938", "0.948", "CCI Breakout"),
-        ("CAD/JPY", "FX:CADJPY", "KUPNO", "113.85", "114.50", "113.20", "MA 200 Support"),
-        ("NZD/USD", "FX:NZDUSD", "SPRZEDAŻ", "0.624", "0.618", "0.630", "Fibo Retest"),
-        ("GBP/CHF", "FX:GBPCHF", "KUPNO", "1.073", "1.080", "1.069", "EMA 50 Bounce"),
-        ("USD/CHF", "FX:USDCHF", "KUPNO", "0.851", "0.858", "0.845", "MACD Golden Cross"),
-        ("EUR/USD", "FX:EURUSD", "SPRZEDAŻ", "1.085", "1.079", "1.091", "BB Rejection"),
-        ("BTC/USD", "BINANCE:BTCUSDT", "KUPNO", "94200", "96500", "92000", "Volume Spike"),
-        ("ETH/USD", "BINANCE:ETHUSDT", "KUPNO", "3350", "3500", "3200", "Ichimoku Breakout")
+        ("CAD/JPY", "FX:CADJPY", "KUPNO", "113.85", "114.50", "113.20", "MA 200 Support")
     ]
     full_db = []
     now = datetime.now()
@@ -53,57 +47,46 @@ def fetch_latest_data():
             })
     return full_db
 
-# 3. BEZPIECZNA INICJALIZACJA (ELIMINACJA BŁĘDÓW KEYERROR)
-if 'db' not in st.session_state: 
-    st.session_state.db = fetch_latest_data()
-if 'selected_date' not in st.session_state: 
-    st.session_state.selected_date = datetime.now().strftime("%d.%m")
-if 'active_pair' not in st.session_state: 
-    st.session_state.active_pair = st.session_state.db[0]
-if 'current_tf' not in st.session_state: 
-    st.session_state.current_tf = "1h"
+# 3. INICJALIZACJA I OBSŁUGA BŁĘDÓW
+if 'db' not in st.session_state: st.session_state.db = fetch_latest_data()
+if 'selected_date' not in st.session_state: st.session_state.selected_date = datetime.now().strftime("%d.%m")
+if 'current_tf' not in st.session_state: st.session_state.current_tf = "1h"
 
-# Filtrowanie sygnałów dla wybranego dnia
+# Pobieranie sygnałów dla wybranego dnia
 filtered_signals = [s for s in st.session_state.db if s.get('date_key') == st.session_state.selected_date]
 
+# Bezpieczne ustawienie aktywnej pary (naprawa KeyError)
+if 'active_pair' not in st.session_state or st.session_state.active_pair not in filtered_signals:
+    st.session_state.active_pair = filtered_signals[0] if filtered_signals else None
+
 def get_advanced_metrics(pair_data, tf):
+    if not pair_data: return 0, 0
     tf_rsi_base = {"1m": 35, "5m": 42, "15m": 48, "1h": 55, "4h": 62, "1D": 68, "1W": 75}
     rsi = round((tf_rsi_base.get(tf, 50) + len(pair_data['pair'])) % 92, 1)
-    tf_weight = {"1m": 60, "5m": 65, "15m": 72, "1h": 80, "4h": 85, "1D": 92, "1W": 95}
-    chance = tf_weight.get(tf, 70) + (len(pair_data['pair']) % 5)
+    chance = 80 + (len(pair_data['pair']) % 15)
     return rsi, min(chance, 99)
 
 @st.dialog("📊 RANKING AI: " + st.session_state.selected_date)
 def show_ranking():
-    st.markdown(f"Interwał: **{st.session_state.current_tf}**")
     for i, item in enumerate(filtered_signals):
         rsi, chance = get_advanced_metrics(item, st.session_state.current_tf)
-        st.markdown(f"""
-            {i+1}. **{item['pair']}** | Szansa: `{chance}%` | RSI: `{rsi}`
-            <div class='reasoning-dialog'>Baza: {item['base']}</div>
-            <hr style='margin:8px 0; border:0.2px solid #444;'>
-        """, unsafe_allow_html=True)
+        st.markdown(f"{i+1}. **{item['pair']}** | Szansa: `{chance}%` | RSI: `{rsi}`<br><div class='reasoning-dialog'>Baza: {item['base']}</div><hr style='margin:8px 0; border:0.2px solid #444;'>", unsafe_allow_html=True)
 
-# --- UI GŁÓWNE ---
-st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V165 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
+# --- UI ---
+st.markdown(f'<div style="background:#1e222d; padding:10px; border:1px solid #00ff88; text-align:center; font-weight:bold; color:white;">TERMINAL V166 | DZIEŃ: {st.session_state.selected_date}</div>', unsafe_allow_html=True)
 
 c_top = st.columns([1, 1, 1, 1, 2])
 dates = [(datetime.now() - timedelta(days=i)).strftime("%d.%m") for i in range(2, -1, -1)]
 
 for i, d in enumerate(dates):
     with c_top[i]:
-        if st.button(d, key=f"d_{d}"):
+        if st.button(d, key=f"btn_{d}"):
             st.session_state.selected_date = d
-            # Resetujemy aktywną parę na pierwszą dostępną w danym dniu, by uniknąć KeyError
-            new_filtered = [s for s in st.session_state.db if s.get('date_key') == d]
-            if new_filtered: st.session_state.active_pair = new_filtered[0]
             st.rerun()
 
 with c_top[3]:
     if st.button("🔄 SYNC"):
         st.session_state.db = fetch_latest_data()
-        st.session_state.selected_date = datetime.now().strftime("%d.%m")
-        st.session_state.active_pair = [s for s in st.session_state.db if s['date_key'] == st.session_state.selected_date][0]
         st.rerun()
 
 with c_top[4]:
@@ -132,22 +115,22 @@ with col_l:
                 st.rerun()
 
 with col_r:
-    cur = st.session_state.active_pair
-    st.markdown(f"## Analiza: {cur['pair']} ({cur['date_key']})")
-    new_tf = st.select_slider("TF:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
-    if new_tf != st.session_state.current_tf:
-        st.session_state.current_tf = new_tf
-        st.rerun()
-    
-    rsi, _ = get_advanced_metrics(cur, st.session_state.current_tf)
-    a1, a2, a3 = st.columns(3)
-    with a1: st.metric("Investing", cur['inv'])
-    with a2: st.metric("TradingView", cur['tv'])
-    with a3: st.metric(f"RSI ({st.session_state.current_tf})", rsi)
+    if st.session_state.active_pair:
+        cur = st.session_state.active_pair
+        st.markdown(f"## Analiza: {cur['pair']} ({cur['date_key']})")
+        st.session_state.current_tf = st.select_slider("TF:", options=["1m", "5m", "15m", "1h", "4h", "1D", "1W"], value=st.session_state.current_tf)
+        
+        rsi, _ = get_advanced_metrics(cur, st.session_state.current_tf)
+        a1, a2, a3 = st.columns(3)
+        with a1: st.metric("Investing", cur['inv'])
+        with a2: st.metric("TradingView", cur['tv'])
+        with a3: st.metric("RSI", rsi)
 
-    components.html(f"""
-        <div style="height:500px;">
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-          {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 450, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
-          </script>
-        </div>""", height=500)
+        components.html(f"""
+            <div style="height:500px;">
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+              {{ "interval": "{st.session_state.current_tf}", "width": "100%", "isTransparent": true, "height": 450, "symbol": "{cur['sym']}", "locale": "pl", "colorTheme": "dark" }}
+              </script>
+            </div>""", height=500)
+    else:
+        st.info("Wybierz sygnał z listy po lewej stronie.")
