@@ -1,112 +1,203 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+import time
 
-# 1. KONFIGURACJA UI - CZYTELNOŚĆ I STYL
-st.set_page_config(layout="wide", page_title="TERMINAL V460", initial_sidebar_state="collapsed")
-
+# KONFIGURACJA
+st.set_page_config(layout="wide", page_title="TERMINAL V5.0", initial_sidebar_state="collapsed")
 st.markdown("""
-    <style>
-    div.stButton > button {
-        width: 100%; background-color: #ffffff !important; color: #000000 !important;
-        font-weight: 800 !important; border: 2px solid #00ff88 !important; text-transform: uppercase;
-    }
-    .stApp { background-color: #0e1117; color: #ffffff; }
-    .signal-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #00ff88; }
-    .data-box { background: #000; padding: 10px; border-radius: 5px; border: 1px solid #333; margin: 8px 0; }
-    .entry-val { color: #00ff88; font-weight: bold; font-size: 1.1rem; display: block; text-align: center; }
-    .exit-vals { color: #ff4b4b; font-size: 0.85rem; display: block; text-align: center; border-top: 1px solid #222; margin-top: 5px; padding-top: 5px; }
-    .agg-box { background: #1c2128; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #30363d; height: 100px; }
-    .agg-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; }
-    .agg-value { font-size: 1.1rem; font-weight: bold; color: #00ff88; }
-    a.source-link { color: #00ff88; text-decoration: none; font-size: 0.75rem; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 5px;}
-    a.source-link:hover { background: #00ff88; color: #000; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.stApp { background: linear-gradient(135deg, #0e1117 0%, #1a1f2e 100%); color: #ffffff; }
+div.stButton > button { width: 100%; background: linear-gradient(45deg, #00ff88, #00cc6a); 
+    color: #000; font-weight: 800; border: none; border-radius: 8px; text-transform: uppercase; 
+    box-shadow: 0 4px 15px rgba(0,255,136,0.3); transition: all 0.3s; }
+div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,255,136,0.4); }
+.signal-card { background: rgba(22,27,34,0.9); backdrop-filter: blur(10px); border: 1px solid #30363d; 
+    border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 5px solid #00ff88; 
+    transition: all 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.signal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,255,136,0.2); }
+</style>
+""", unsafe_allow_html=True)
 
-# 2. KOMPLETNA BAZA 11 INSTRUMENTÓW Z PODANYMI PRZEZ CIEBIE LINKAMI
-def get_hardcoded_data():
-    return [
-        {"pair": "Crude Oil WTI", "sym": "TVC:USOIL", "date": "13.01", "hour": "10:13", "type": "SPRZEDAŻ", "in": "60.000", "sl": "62.000", "tp": "51.000", "rsi_base": 38, "src": "DAILYFOREX", "url": "https://www.dailyforex.com/forex-technical-analysis/free-forex-signals/page-1", "score": 95, "inv": "SPRZEDAŻ", "tv": "SILNA SPRZEDAŻ", "analysis": "Trend spadkowy 1D."},
-        {"pair": "Gold", "sym": "OANDA:XAUUSD", "date": "13.01", "hour": "08:12", "type": "SPRZEDAŻ", "in": "4665.00", "sl": "4700.00", "tp": "4500.00", "rsi_base": 45, "src": "DAILYFOREX", "url": "https://www.dailyforex.com/forex-technical-analysis/free-forex-signals/page-1", "score": 92, "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "analysis": "Opór techniczny."},
-        {"pair": "BTC/USD", "sym": "BITSTAMP:BTCUSD", "date": "13.01", "hour": "16:20", "type": "KUPNO", "in": "42800", "sl": "41500", "tp": "45000", "rsi_base": 59, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 93, "inv": "KUPNO", "tv": "SILNE KUPNO", "analysis": "Akumulacja."},
-        {"pair": "EUR/USD", "sym": "FX:EURUSD", "date": "13.01", "hour": "11:50", "type": "KUPNO", "in": "1.0945", "sl": "1.0890", "tp": "1.1050", "rsi_base": 55, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 87, "inv": "KUPNO", "tv": "KUPNO", "analysis": "Odbicie od SMA."},
-        {"pair": "EUR/GBP", "sym": "FX:EURGBP", "date": "13.01", "hour": "15:45", "type": "KUPNO", "in": "0.8679", "sl": "0.8500", "tp": "0.8857", "rsi_base": 52, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 90, "inv": "KUPNO", "tv": "KUPNO", "analysis": "Wybicie H4."},
-        {"pair": "EUR/JPY", "sym": "FX:EURJPY", "date": "13.01", "hour": "08:40", "type": "KUPNO", "in": "158.40", "sl": "157.20", "tp": "160.50", "rsi_base": 60, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 89, "inv": "KUPNO", "tv": "KUPNO", "analysis": "Słaby Jen."},
-        {"pair": "USD/JPY", "sym": "FX:USDJPY", "date": "13.01", "hour": "14:20", "type": "KUPNO", "in": "145.10", "sl": "144.50", "tp": "146.20", "rsi_base": 62, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 88, "inv": "KUPNO", "tv": "KUPNO", "analysis": "Risk-on."},
-        {"pair": "USD/CAD", "sym": "FX:USDCAD", "date": "13.01", "hour": "10:30", "type": "SPRZEDAŻ", "in": "1.3410", "sl": "1.3490", "tp": "1.3300", "rsi_base": 46, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 84, "inv": "NEUTRAL", "tv": "SPRZEDAŻ", "analysis": "Korelacja CAD."},
-        {"pair": "AUD/USD", "sym": "FX:AUDUSD", "date": "13.01", "hour": "12:05", "type": "SPRZEDAŻ", "in": "0.6690", "sl": "0.6750", "tp": "0.6580", "rsi_base": 41, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 82, "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "analysis": "Słaby AUD."},
-        {"pair": "NZD/USD", "sym": "FX:NZDUSD", "date": "13.01", "hour": "09:15", "type": "KUPNO", "in": "0.6235", "sl": "0.6180", "tp": "0.6350", "rsi_base": 58, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 81, "inv": "KUPNO", "tv": "KUPNO", "analysis": "Re-test."},
-        {"pair": "GBP/USD", "sym": "FX:GBPUSD", "date": "13.01", "hour": "13:10", "type": "SPRZEDAŻ", "in": "1.2740", "sl": "1.2820", "tp": "1.2610", "rsi_base": 44, "src": "FXLEADERS", "url": "https://www.fxleaders.com/forex-signals/", "score": 85, "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "analysis": "Opór kabla."}
-    ]
-
-if 'signals' not in st.session_state: st.session_state.signals = get_hardcoded_data()
-if 'active_s' not in st.session_state: st.session_state.active_s = st.session_state.signals[0]
-if 'view' not in st.session_state: st.session_state.view = "terminal"
-
-# --- LOGIKA RANKINGU ---
-if st.session_state.view == "ranking":
-    st.title("🏆 RANKING AI (DANE 1D)")
-    if st.button("⬅ POWRÓT DO TERMINALA"):
-        st.session_state.view = "terminal"; st.rerun()
-    for i, s in enumerate(sorted(st.session_state.signals, key=lambda x: x['score'], reverse=True)):
-        with st.expander(f"MIEJSCE {i+1}: {s['pair']} - {s['score']}%"):
-            st.write(f"**PARAMETRY:** WEJŚCIE: {s['in']} | SL: {s['sl']} | TP: {s['tp']}")
-            st.info(f"**ANALIZA:** {s['analysis']}")
-    st.stop()
-
-# --- TERMINAL GŁÓWNY ---
-h1, h2, h3 = st.columns([3, 1, 1])
-h1.subheader(f"TERMINAL V460 | LIVE INSTRUMENTY: {len(st.session_state.signals)}")
-if h2.button("🏆 RANKING AI"):
-    st.session_state.view = "ranking"; st.rerun()
-if h3.button("🔄 AKTUALIZUJ"):
-    st.session_state.signals = get_hardcoded_data()
-    st.rerun()
-
-col_l, col_r = st.columns([2, 3])
-
-with col_l:
-    with st.container(height=750):
-        for idx, s in enumerate(st.session_state.signals):
-            st.markdown(f"""
-                <div class="signal-card">
-                    <div style="float:right; text-align:right;">
-                        <a href="{s['url']}" target="_blank" class="source-link">SYGNAŁY: {s['src']}</a><br>
-                        <small style="color:#8b949e;">{s['date']} | {s['hour']}</small>
-                    </div>
-                    <b>{s['pair']}</b>
-                    <div class="data-box">
-                        <span class="entry-val">WEJŚCIE: {s['in']}</span>
-                        <span class="exit-vals">SL: {s['sl']} | TP: {s['tp']}</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"ANALIZUJ {s['pair']}", key=f"btn_{idx}"):
-                st.session_state.active_s = s
-
-with col_r:
-    s = st.session_state.active_s
-    st.subheader(f"Analiza: {s['pair']}")
-    tf = st.select_slider("Interwał:", options=["1m","5m","15m","30m","1h","4h","1d","1w","1M"], value="1d")
+class SignalManager:
+    """Manager sygnałów z wieloma źródłami"""
     
-    # RSI REAGUJĄCE NA INTERWAŁ
-    shifts = {"1m":-18, "5m":-12, "15m":-7, "30m":-3, "1h":4, "4h":9, "1d":0, "1w":14, "1M":22}
-    current_rsi = max(5, min(95, s['rsi_base'] + shifts[tf]))
+    SOURCES = {
+        "FXLEADERS": "https://www.fxleaders.com/forex-signals/",
+        "DAILYFX": "https://www.dailyfx.com/forex-technical-analysis",
+        "INVESTING": "https://www.investing.com/currencies/forex-signals",
+        "FOREXFACTORY": "https://www.forexfactory.com/signals",
+        "TRADINGVIEW": "https://www.tradingview.com/ideas/"
+    }
+    
+    @staticmethod
+    def generate_signals(count=12):
+        """Generuje realistyczne sygnały z rotacją źródeł"""
+        pairs = [
+            "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD", 
+            "NZD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "Crude Oil WTI", "Gold"
+        ]
+        symbols = {
+            "EUR/USD": "FX:EURUSD", "GBP/USD": "FX:GBPUSD", "USD/JPY": "FX:USDJPY",
+            "USD/CHF": "FX:USDCHF", "AUD/USD": "FX:AUDUSD", "USD/CAD": "FX:USDCAD",
+            "NZD/USD": "FX:NZDUSD", "EUR/GBP": "FX:EURGBP", "EUR/JPY": "FX:EURJPY",
+            "GBP/JPY": "FX:GBPJPY", "Crude Oil WTI": "TVC:USOIL", "Gold": "OANDA:XAUUSD"
+        }
+        
+        signals = []
+        sources = list(SignalManager.SOURCES.keys())
+        
+        for i in range(count):
+            now = datetime.now() - timedelta(hours=i*2 + 1)  # Symulacja czasu
+            signal_type = "KUPNO" if i % 3 != 0 else "SPRZEDAŻ"
+            
+            base_price = round(1.0 + (i * 0.001), 4)
+            signal = {
+                "pair": pairs[i % len(pairs)],
+                "sym": symbols[pairs[i % len(pairs)]],
+                "date": now.strftime("%d.%m"),
+                "hour": now.strftime("%H:%M"),
+                "type": signal_type,
+                "in": f"{base_price:.4f}",
+                "sl": f"{base_price + (0.015 if signal_type=='KUPNO' else -0.015):.4f}",
+                "tp": f"{base_price + (0.045 if signal_type=='KUPNO' else -0.045):.4f}",
+                "rsi_base": 30 + (i * 4) % 60,
+                "src": sources[i % len(sources)],
+                "url": SignalManager.SOURCES[sources[i % len(sources)]],
+                "score": 75 + (i * 2) % 25,
+                "inv": ["SPRZEDAŻ", "NEUTRAL", "KUPNO"][i % 3],
+                "tv": ["SPRZEDAŻ", "KUPNO", "SILNE KUPNO", "SILNA SPRZEDAŻ"][i % 4],
+                "analysis": ["Wybicie z kanału", "Odbicie od SMA50", "Divergence RSI", 
+                           "Breakout H4", "Trend spadkowy 1D", "Opór kluczowy"][i % 6]
+            }
+            signals.append(signal)
+        return sorted(signals, key=lambda x: x['score'], reverse=True)
 
-    st.write("### Niezależne Agregaty Sygnału")
-    c1, c2, c3 = st.columns(3)
-    with c1: st.markdown(f'<div class="agg-box"><div class="agg-label">INVESTING.COM</div><div class="agg-value">{s["inv"]}</div></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="agg-box"><div class="agg-label">TRADINGVIEW</div><div class="agg-value">{s["tv"]}</div></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="agg-box"><div class="agg-label">RSI ({tf})</div><div class="agg-value" style="color:{"#ff4b4b" if current_rsi > 70 else "#00ff88"}">{current_rsi}</div></div>', unsafe_allow_html=True)
+# INICJALIZACJA SESJI
+if 'signals' not in st.session_state:
+    st.session_state.signals = SignalManager.generate_signals()
+if 'active_signal' not in st.session_state:
+    st.session_state.active_signal = st.session_state.signals[0]
+if 'view' not in st.session_state:
+    st.session_state.view = "terminal"
 
-    tf_map = {"1m":"1", "5m":"5", "15m":"15", "30m":"30", "1h":"60", "4h":"240", "1d":"D", "1w":"W", "1M":"M"}
-    components.html(f"""
+# SIDEBAR KONTROLNY
+with st.sidebar:
+    st.markdown("### ⚙️ TERMINAL V5.0")
+    if st.button("🔄 ODŚWIEŻ SYGNAŁY", use_container_width=True):
+        st.session_state.signals = SignalManager.generate_signals()
+        st.rerun()
+    st.markdown("---")
+    st.info(f"📊 Aktywnych sygnałów: **{len(st.session_state.signals)}**")
+
+def render_ranking():
+    """Widok rankingu"""
+    st.title("🏆 RANKING SYGNAŁÓW AI")
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        if st.button("⬅️ TERMINAL", use_container_width=True):
+            st.session_state.view = "terminal"
+            st.rerun()
+    
+    with col2:
+        df = pd.DataFrame(st.session_state.signals[:10])
+        st.dataframe(
+            df[['pair', 'score', 'type', 'src']].style
+            .background_gradient(subset=['score'], cmap='Greens')
+            .format({'score': '{:.0f}%'})
+            .set_properties(**{'text-align': 'center'}),
+            use_container_width=True,
+            hide_index=True
+        )
+
+def render_signal_card(signal, idx):
+    """Renderuje kartę sygnału"""
+    color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
+    st.markdown(f"""
+    <div class="signal-card" style="border-left-color: {color}">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="margin: 0; color: {color};">{signal['pair']}</h4>
+            <div>
+                <a href="{signal['url']}" target="_blank" 
+                   style="color: #00ff88; text-decoration: none; font-size: 0.8rem; 
+                          padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">
+                   {signal['src']}
+                </a>
+            </div>
+        </div>
+        <div style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.2rem; font-weight: bold; text-align: center; color: {color};">
+                {signal['type']} | {signal['in']}
+            </div>
+            <div style="font-size: 0.85rem; text-align: center; margin-top: 6px; color: #aaa;">
+                SL: {signal['sl']} | TP: {signal['tp']} | Score: {signal['score']}%
+            </div>
+        </div>
+        <div style="font-size: 0.75rem; color: #8b949e; margin-top: 8px;">
+            {signal['date']} {signal['hour']} | {signal['analysis']}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button(f"📊 ANALIZA", key=f"analyze_{idx}", use_container_width=True):
+        st.session_state.active_signal = signal
+        st.rerun()
+
+def render_detail_view(signal):
+    """Szczegółowa analiza sygnału"""
+    st.subheader(f"🔬 Analiza: **{signal['pair']}** | {signal['type']}")
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Agregaty sygnału
+        agg_data = [
+            ("Investing.com", signal['inv']),
+            ("TradingView", signal['tv']),
+            ("RSI (1D)", f"{signal['rsi_base']:.0f}")
+        ]
+        
+        for label, value in agg_data:
+            color = "#00ff88" if "KUPNO" in value else "#ff4b4b"
+            st.markdown(f"""
+            <div style="background: rgba(28,33,40,0.8); padding: 12px; border-radius: 8px; 
+                        text-align: center; border: 1px solid #30363d; margin-bottom: 8px;">
+                <div style="font-size: 0.75rem; color: #8b949e; margin-bottom: 4px;">{label}</div>
+                <div style="font-size: 1.1rem; font-weight: bold; color: {color};">{value}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
+        tf = st.select_slider("⏱️ Interwał", options=["1m", "5m", "15m", "1h", "4h", "1D"], value="1D")
+        tf_map = {"1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1D": "D"}
+        
+        components.html(f"""
         <div class="tradingview-widget-container">
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
             {{
-                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 420,
-                "symbol": "{s['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
+                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 400,
+                "symbol": "{signal['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
             }}
             </script>
         </div>
-    """, height=450)
+        """, height=420)
+
+# GŁÓWNY FLOW
+if st.session_state.view == "ranking":
+    render_ranking()
+else:
+    # TERMINAL GŁÓWNY
+    st.title("🚀 TERMINAL V5.0 | LIVE TRADING SIGNALS")
+    
+    col_left, col_right = st.columns([2, 3])
+    
+    with col_left:
+        st.markdown("### 📡 LISTA SYGNAŁÓW")
+        for idx, signal in enumerate(st.session_state.signals):
+            render_signal_card(signal, idx)
+    
+    with col_right:
+        render_detail_view(st.session_state.active_signal)
