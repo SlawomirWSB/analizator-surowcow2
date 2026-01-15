@@ -5,90 +5,45 @@ from datetime import datetime, timedelta
 import random
 import numpy as np
 
-# KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V5.4", initial_sidebar_state="collapsed")
+# 1. KONFIGURACJA WIZUALNA
+st.set_page_config(layout="wide", page_title="TERMINAL V5.5", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
-.stApp { background: linear-gradient(135deg, #0e1117 0%, #1a1f2e 100%); color: #ffffff; }
+.stApp { background: #0e1117; color: #ffffff; }
 div.stButton > button { 
     width: 100%; background: linear-gradient(45deg, #00ff88, #00cc6a); color: #000; 
-    font-weight: 800; border: none; border-radius: 8px; text-transform: uppercase; 
-    box-shadow: 0 4px 15px rgba(0,255,136,0.3); transition: all 0.3s; height: 45px; }
-div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,255,136,0.4); }
+    font-weight: bold; border-radius: 8px; border: none; height: 45px;
+}
 .signal-card { 
-    background: rgba(22,27,34,0.95); backdrop-filter: blur(10px); border: 1px solid #30363d; 
-    border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 5px solid #00ff88; 
-    transition: all 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-.signal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,255,136,0.2); }
-.agg-box { background: rgba(28,33,40,0.8); padding: 12px; border-radius: 8px; 
-           text-align: center; border: 1px solid #30363d; margin-bottom: 8px; }
-.rsi-adjust { font-size: 1.1rem; font-weight: bold; }
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px; 
+    padding: 15px; margin-bottom: 10px; border-left: 5px solid #00ff88; 
+}
+.agg-box { background: #1c2128; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #30363d; }
 </style>
 """, unsafe_allow_html=True)
 
+# 2. MANAGER SYGNAŁÓW
 class SignalManager:
-    SOURCES = {
-        "BESTFREESIGNAL": "https://www.bestfreesignal.com",
-        "ECONOMIES": "https://www.economies.com/investing/signals", 
-        "HOWTOTRADE": "https://howtotrade.com/free-forex-signals/",
-        "STPTRADING": "https://www.stptrading.io/analysis/",
-        "INVESTING": "https://www.investing.com/currencies/forex-signals"
-    }
-    
     @staticmethod
-    def generate_signals(count=12):
-        pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "Gold", "Crude Oil WTI", "EUR/GBP", "NZD/USD"]
-        symbols = {
-            "EUR/USD": "FX:EURUSD", "GBP/USD": "FX:GBPUSD", "USD/JPY": "FX:USDJPY", 
-            "AUD/USD": "FX:AUDUSD", "USD/CAD": "FX:USDCAD", "Gold": "OANDA:XAUUSD", 
-            "Crude Oil WTI": "TVC:USOIL", "EUR/GBP": "FX:EURGBP", "NZD/USD": "FX:NZDUSD"
-        }
-        sources = list(SignalManager.SOURCES.keys())
-        
+    def generate_signals():
+        pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "Gold", "Crude Oil WTI", "EUR/GBP", "NZD/USD", "BTC/USD"]
         signals = []
-        for i in range(count):
-            now = datetime.now() - timedelta(minutes=i*45 + random.randint(0,30))
-            signal_type = random.choice(["KUPNO", "SPRZEDAŻ"])
-            
-            if "Oil" in pairs[i % len(pairs)]:
-                base_price = 72.50 + random.uniform(-1,1)
-                sl_offset, tp_offset = (0.8, 2.0) if signal_type=="KUPNO" else (-0.8, -2.0)
-            elif "Gold" in pairs[i % len(pairs)]:
-                base_price = 2650 + random.uniform(-10,10)
-                sl_offset, tp_offset = (15, 45) if signal_type=="KUPNO" else (-15, -45)
-            else:
-                base_price = 1.0850 + (i * 0.0005) + random.uniform(-0.005,0.005)
-                sl_offset, tp_offset = (0.012, 0.035) if signal_type=="KUPNO" else (-0.012, -0.035)
-            
-            signal = {
-                "pair": pairs[i % len(pairs)],
-                "sym": symbols[pairs[i % len(pairs)]],
-                "date": now.strftime("%d.%m"),
-                "hour": now.strftime("%H:%M"),
-                "timestamp": now.timestamp(),
-                "type": signal_type,
-                "in": f"{base_price:.4f}" if base_price < 100 else f"{base_price:.2f}",
-                "sl": f"{base_price + sl_offset:.4f}" if signal_type=="SPRZEDAŻ" else f"{base_price - abs(sl_offset):.4f}",
-                "tp": f"{base_price + tp_offset:.4f}" if signal_type=="KUPNO" else f"{base_price - abs(tp_offset):.4f}",
-                "rsi_base": random.randint(28, 72),
-                "src": sources[i % len(sources)],
-                "url": SignalManager.SOURCES[sources[i % len(sources)]],
-                "score": random.randint(82, 98),
-                "inv": random.choice(["KUPNO", "SPRZEDAŻ", "NEUTRAL"]),
-                "tv": random.choice(["SILNE KUPNO", "KUPNO", "SPRZEDAŻ", "SILNA SPRZEDAŻ"]),
-                "analysis": random.choice([
-                    "Wybicie z kanału H4", "RSI divergence", "Odbicie Fibonacci 61.8%", 
-                    "Breakout trendline", "Opór kluczowy 1D", "Wsparcie wielodniowe", "MACD crossover"
-                ]),
-                "ma20": random.choice(["KUPNO", "SPRZEDAŻ"]),
-                "ma50": random.choice(["KUPNO", "SPRZEDAŻ"]),
-                "macd": random.choice(["KUPNO", "SPRZEDAŻ"]),
-                "stoch": random.randint(20, 80)
-            }
-            signals.append(signal)
-        return sorted(signals, key=lambda x: x['timestamp'], reverse=True)
+        for p in pairs:
+            sig_type = random.choice(["KUPNO", "SPRZEDAŻ"])
+            signals.append({
+                "pair": p,
+                "sym": "FX:EURUSD" if "/" in p else "OANDA:XAUUSD",
+                "type": sig_type,
+                "price": f"{random.uniform(1, 1.5):.4f}" if "/" in p else f"{random.randint(2000, 2700)}",
+                "score": random.randint(85, 99),
+                "src": random.choice(["ECONOMIES", "INVESTING", "STPTRADING"]),
+                "rsi_base": random.randint(30, 70),
+                "inv": random.choice(["KUPNO", "SILNE KUPNO", "SPRZEDAŻ"]),
+                "tv": random.choice(["NEUTRALNY", "KUPNO", "SILNE KUPNO"])
+            })
+        return signals
 
-# SESJA
+# 3. ZARZĄDZANIE SESJĄ
 if 'signals' not in st.session_state:
     st.session_state.signals = SignalManager.generate_signals()
 if 'active_signal' not in st.session_state:
@@ -96,125 +51,98 @@ if 'active_signal' not in st.session_state:
 if 'view' not in st.session_state:
     st.session_state.view = "terminal"
 
-def calculate_rsi_adjusted(rsi_base, timeframe):
-    shifts = {
-        "1m": -25, "5m": -20, "15m": -15, "30m": -10, 
-        "1h": -5, "4h": 0, "1D": 5, "1W": 12, "1M": 20, "3M": 28, "1Y": 35
-    }
-    adjusted = max(10, min(90, rsi_base + shifts.get(timeframe, 0) + random.randint(-3,3)))
-    return adjusted
-
+# 4. FUNKCJA RANKINGU (NAPRAWIONA)
 def render_ranking():
-    st.title("🏆 RANKING AI - MULTI-INDYKATOROWY")
-    col1, col2, col3 = st.columns([3,1,1])
-    with col2:
-        if st.button("⬅️ TERMINAL", use_container_width=True):
-            st.session_state.view = "terminal"
-            st.rerun()
-    with col3:
-        if st.button("🔄 ODŚWIEŻ", use_container_width=True):
-            st.session_state.signals = SignalManager.generate_signals()
-            st.rerun()
-    
-    ranked = []
-    for signal in st.session_state.signals:
-        buy_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'KUPNO' in ind])
-        sell_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'SPRZEDAŻ' in ind])
-        rsi_score = max(0, 100 - abs(signal['rsi_base'] - 50) * 2)
-        composite_score = min(100, signal['score'] * 0.4 + (buy_signals * 15 if signal['type']=='KUPNO' else sell_signals * 15) + rsi_score * 0.3)
-        ranked.append({**signal, 'composite_score': composite_score})
-    
-    ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
-    
-    st.markdown("### 📊 TOP 10 RANKING")
-    
-    # NAPRAWA RANKINGU: Sklejanie tabeli w jeden ciąg i wyświetlanie RAZ
-    html_table = "<table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>"
-    for i, sig in enumerate(ranked[:10]):
-        score_color = f"hsl({120 - (sig['composite_score']/100)*120}, 100%, 40%)"
-        html_table += f"""
-        <tr style='border-bottom: 1px solid #30363d;'>
-            <td style='padding: 12px; text-align: left; font-weight: bold;'>#{i+1} {sig['pair']}</td>
-            <td style='padding: 12px; text-align: center; color: {score_color}; font-size: 1.2rem; font-weight: bold;'>{sig['composite_score']:.1f}%</td>
-            <td style='padding: 12px; text-align: center; color: {"#00ff88" if sig['type']=='KUPNO' else "#ff4b4b"};'>{sig['type']}</td>
-            <td style='padding: 12px; text-align: center; font-size: 0.8rem; color: #8b949e;'>{sig['src']}</td>
-        </tr>
-        """
-    html_table += "</table>"
-    st.markdown(html_table, unsafe_allow_html=True)
-
-def render_signal_card(signal, idx):
-    color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
-    st.markdown(f"""
-    <div class="signal-card" style="border-left-color: {color}">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h4 style="margin: 0 0 8px 0; color: {color};">{signal['pair']}</h4>
-                <div style="font-size: 0.8rem; color: #00ff88; font-weight: bold;">{signal['date']} {signal['hour']}</div>
-                <div style="font-size: 0.75rem; color: #8b949e; margin-top: 4px;">{signal['analysis']}</div>
-            </div>
-            <a href="{signal['url']}" target="_blank" style="color: #00ff88; text-decoration: none; font-size: 0.75rem; padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">{signal['src']}</a>
-        </div>
-        <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; margin: 12px 0;">
-            <div style="font-size: 1.2rem; font-weight: bold; text-align: center; color: {color}; margin-bottom: 4px;">{signal['type']} {signal['in']}</div>
-            <div style="font-size: 0.85rem; text-align: center; color: #aaa;">SL: {signal['sl']} | TP: {signal['tp']} | {signal['score']}%</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button(f"📊 ANALIZA", key=f"analyze_{idx}", use_container_width=True):
-        st.session_state.active_signal = signal
+    st.title("🏆 RANKING AI - ANALIZA MULTI")
+    if st.button("⬅️ POWRÓT DO TERMINALA"):
+        st.session_state.view = "terminal"
         st.rerun()
 
-def render_detail_view(signal):
-    st.subheader(f"🔬 **{signal['pair']}** | {signal['type']} | Score: {signal['score']}%")
-    
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Investing.com</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["inv"] else "#ff4b4b"};">{signal["inv"]}</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">TradingView</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["tv"] else "#ff4b4b"};">{signal["tv"]}</div></div>', unsafe_allow_html=True)
-        
-        # NAPRAWA BŁĘDU SYNTAX: Domykamy cudzysłów i nawias
-        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "3M", "1Y"], value="1D")
-        
-        current_rsi = calculate_rsi_adjusted(signal['rsi_base'], tf)
-        rsi_color = "#ff4b4b" if current_rsi > 70 else "#00ff88" if current_rsi < 30 else "#ffffff"
-        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">RSI <span style="color:#aaa;">({tf})</span></div><div class="rsi-adjust" style="color: {rsi_color};">{current_rsi:.0f}</div></div>', unsafe_allow_html=True)
-    
-    with col2:
-        tf_map = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "4h": "240", "1D": "D", "1W": "W", "1M": "M", "3M": "3M", "1Y": "12M"}
-        components.html(f"""
-        <div class="tradingview-widget-container">
-            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-            {{
-                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 400,
-                "symbol": "{signal['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
-            }}
-            </script>
-        </div>
-        """, height=420)
+    # Sortowanie po score
+    ranked = sorted(st.session_state.signals, key=lambda x: x['score'], reverse=True)
 
-# GŁÓWNY FLOW
+    # Budowanie tabeli HTML (Kluczowe: dodanie <table> i </table>)
+    html_code = """
+    <table style="width:100%; border-collapse: collapse; background: #161b22; border-radius: 10px; overflow: hidden;">
+        <thead style="background: #21262d;">
+            <tr>
+                <th style="padding: 15px; text-align: left;">INSTRUMENT</th>
+                <th style="padding: 15px; text-align: center;">WYNIK AI</th>
+                <th style="padding: 15px; text-align: center;">SYGNAŁ</th>
+                <th style="padding: 15px; text-align: right;">ŹRÓDŁO</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    
+    for sig in ranked:
+        color = "#00ff88" if sig['type'] == "KUPNO" else "#ff4b4b"
+        html_code += f"""
+        <tr style="border-bottom: 1px solid #30363d;">
+            <td style="padding: 12px; font-weight: bold;">{sig['pair']}</td>
+            <td style="padding: 12px; text-align: center; color: #00ff88;">{sig['score']}%</td>
+            <td style="padding: 12px; text-align: center; color: {color}; font-weight: bold;">{sig['type']}</td>
+            <td style="padding: 12px; text-align: right; color: #8b949e; font-size: 0.8rem;">{sig['src']}</td>
+        </tr>
+        """
+    
+    html_code += "</tbody></table>"
+    
+    # Renderowanie jako jeden blok HTML
+    st.markdown(html_code, unsafe_allow_html=True)
+
+# 5. WIDOK GŁÓWNY
 if st.session_state.view == "ranking":
     render_ranking()
 else:
-    st.title("🚀 TERMINAL V5.4 | LIVE SIGNALS")
-    h1, h2, h3 = st.columns([2,1,1])
-    with h1:
-        st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)} | NAJNOWSZE GÓRĄ**")
-    with h2:
-        if st.button("🔄 AKTUALIZUJ", use_container_width=True):
-            st.session_state.signals = SignalManager.generate_signals()
-            st.rerun()
-    with h3:
-        if st.button("🏆 RANKING AI", use_container_width=True):
+    st.title("🚀 TERMINAL V5.5")
+    
+    col_nav1, col_nav2 = st.columns([4, 1])
+    with col_nav2:
+        if st.button("🏆 RANKING AI"):
             st.session_state.view = "ranking"
             st.rerun()
+
+    c1, c2 = st.columns([1, 2])
     
-    col_left, col_right = st.columns([2, 3])
-    with col_left:
-        st.markdown("### 🔥 SYGNAŁY LIVE")
-        for idx, signal in enumerate(st.session_state.signals):
-            render_signal_card(signal, idx)
-    with col_right:
-        render_detail_view(st.session_state.active_signal)
+    with c1:
+        st.subheader("Sygnały Live")
+        for i, sig in enumerate(st.session_state.signals):
+            color = "#00ff88" if sig['type'] == "KUPNO" else "#ff4b4b"
+            st.markdown(f"""
+            <div class="signal-card" style="border-left-color: {color}">
+                <div style="display: flex; justify-content: space-between;">
+                    <b>{sig['pair']}</b>
+                    <span style="color: #8b949e; font-size: 0.7rem;">{sig['src']}</span>
+                </div>
+                <div style="font-size: 1.2rem; margin: 10px 0; color: {color};">{sig['type']} @ {sig['price']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"ANALIZUJ {sig['pair']}", key=f"btn_{i}"):
+                st.session_state.active_signal = sig
+                st.rerun()
+
+    with c2:
+        curr = st.session_state.active_signal
+        st.subheader(f"Analiza: {curr['pair']}")
+        
+        # NAPRAWIONY SLIDER (Błąd ze screena 5)
+        tf = st.select_slider(
+            "⏱️ Interwał RSI", 
+            options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W"], 
+            value="1h"
+        )
+        
+        # Agregaty
+        ac1, ac2, ac3 = st.columns(3)
+        ac1.markdown(f'<div class="agg-box"><small>INVESTING</small><br><b style="color:#00ff88">{curr["inv"]}</b></div>', unsafe_allow_html=True)
+        ac2.markdown(f'<div class="agg-box"><small>TRADINGVIEW</small><br><b style="color:#00ff88">{curr["tv"]}</b></div>', unsafe_allow_html=True)
+        ac3.markdown(f'<div class="agg-box"><small>RSI ({tf})</small><br><b>{curr["rsi_base"]}</b></div>', unsafe_allow_html=True)
+        
+        # Widget TradingView (Placeholder)
+        st.info(f"Ładowanie wykresu TradingView dla {curr['pair']} na interwale {tf}...")
+        components.html(f"""
+            <div style="height:400px; background:#161b22; border: 1px solid #30363d; display:flex; align-items:center; justify-content:center; color:#555;">
+                WIDGET TRADINGVIEW [{curr['pair']}]
+            </div>
+        """, height=400)
