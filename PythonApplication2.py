@@ -127,25 +127,17 @@ def render_ranking():
     ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
     
     st.markdown("### 📊 TOP 10 RANKING")
-    html_table = """
-    <table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>
-    """
+    
+    # Budowanie tabeli HTML jako jeden ciąg znaków
+    html_table = "<table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>"
     for i, sig in enumerate(ranked[:10]):
         score_color = f"hsl({120 - (sig['composite_score']/100)*120}, 100%, 40%)"
         html_table += f"""
         <tr style='border-bottom: 1px solid #30363d;'>
-            <td style='padding: 12px; text-align: left; font-weight: bold;'>
-                #{i+1} {sig['pair']}
-            </td>
-            <td style='padding: 12px; text-align: center; color: {score_color}; font-size: 1.2rem; font-weight: bold;'>
-                {sig['composite_score']:.1f}%
-            </td>
-            <td style='padding: 12px; text-align: center; color: {"#00ff88" if sig['type']=='KUPNO' else "#ff4b4b"};'>
-                {sig['type']}
-            </td>
-            <td style='padding: 12px; text-align: center; font-size: 0.8rem; color: #8b949e;'>
-                {sig['src']}
-            </td>
+            <td style='padding: 12px; text-align: left; font-weight: bold;'>#{i+1} {sig['pair']}</td>
+            <td style='padding: 12px; text-align: center; color: {score_color}; font-size: 1.2rem; font-weight: bold;'>{sig['composite_score']:.1f}%</td>
+            <td style='padding: 12px; text-align: center; color: {"#00ff88" if sig['type']=='KUPNO' else "#ff4b4b"};'>{sig['type']}</td>
+            <td style='padding: 12px; text-align: center; font-size: 0.8rem; color: #8b949e;'>{sig['src']}</td>
         </tr>
         """
     html_table += "</table>"
@@ -158,26 +150,14 @@ def render_signal_card(signal, idx):
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
                 <h4 style="margin: 0 0 8px 0; color: {color};">{signal['pair']}</h4>
-                <div style="font-size: 0.8rem; color: #00ff88; font-weight: bold;">
-                    {signal['date']} {signal['hour']}
-                </div>
-                <div style="font-size: 0.75rem; color: #8b949e; margin-top: 4px;">
-                    {signal['analysis']}
-                </div>
+                <div style="font-size: 0.8rem; color: #00ff88; font-weight: bold;">{signal['date']} {signal['hour']}</div>
+                <div style="font-size: 0.75rem; color: #8b949e; margin-top: 4px;">{signal['analysis']}</div>
             </div>
-            <a href="{signal['url']}" target="_blank" 
-               style="color: #00ff88; text-decoration: none; font-size: 0.75rem; 
-                      padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">
-                {signal['src']}
-            </a>
+            <a href="{signal['url']}" target="_blank" style="color: #00ff88; text-decoration: none; font-size: 0.75rem; padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">{signal['src']}</a>
         </div>
         <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; margin: 12px 0;">
-            <div style="font-size: 1.2rem; font-weight: bold; text-align: center; color: {color}; margin-bottom: 4px;">
-                {signal['type']} {signal['in']}
-            </div>
-            <div style="font-size: 0.85rem; text-align: center; color: #aaa;">
-                SL: {signal['sl']} | TP: {signal['tp']} | {signal['score']}%
-            </div>
+            <div style="font-size: 1.2rem; font-weight: bold; text-align: center; color: {color}; margin-bottom: 4px;">{signal['type']} {signal['in']}</div>
+            <div style="font-size: 0.85rem; text-align: center; color: #aaa;">SL: {signal['sl']} | TP: {signal['tp']} | {signal['score']}%</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -194,4 +174,47 @@ def render_detail_view(signal):
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Investing.com</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["inv"] else "#ff4b4b"};">{signal["inv"]}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">TradingView</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["tv"] else "#ff4b4b"};">{signal["tv"]}</div></div>', unsafe_allow_html=True)
         
-        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W
+        # POPRAWIONY SLIDER - Naprawiono błąd SyntaxError (domknięto cudzysłów i nawias)
+        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "3M", "1Y"], value="1D")
+        
+        current_rsi = calculate_rsi_adjusted(signal['rsi_base'], tf)
+        rsi_color = "#ff4b4b" if current_rsi > 70 else "#00ff88" if current_rsi < 30 else "#ffffff"
+        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">RSI <span style="color:#aaa;">({tf})</span></div><div class="rsi-adjust" style="color: {rsi_color};">{current_rsi:.0f}</div></div>', unsafe_allow_html=True)
+    
+    with col2:
+        tf_map = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "4h": "240", "1D": "D", "1W": "W", "1M": "M", "3M": "3M", "1Y": "12M"}
+        components.html(f"""
+        <div class="tradingview-widget-container">
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+            {{
+                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 400,
+                "symbol": "{signal['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
+            }}
+            </script>
+        </div>
+        """, height=420)
+
+# GŁÓWNY FLOW
+if st.session_state.view == "ranking":
+    render_ranking()
+else:
+    st.title("🚀 TERMINAL V5.4 | LIVE SIGNALS")
+    h1, h2, h3 = st.columns([2,1,1])
+    with h1:
+        st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)} | NAJNOWSZE GÓRĄ**")
+    with h2:
+        if st.button("🔄 AKTUALIZUJ", use_container_width=True):
+            st.session_state.signals = SignalManager.generate_signals()
+            st.rerun()
+    with h3:
+        if st.button("🏆 RANKING AI", use_container_width=True):
+            st.session_state.view = "ranking"
+            st.rerun()
+    
+    col_left, col_right = st.columns([2, 3])
+    with col_left:
+        st.markdown("### 🔥 SYGNAŁY LIVE")
+        for idx, signal in enumerate(st.session_state.signals):
+            render_signal_card(signal, idx)
+    with col_right:
+        render_detail_view(st.session_state.active_signal)
