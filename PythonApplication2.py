@@ -3,9 +3,10 @@ import streamlit.components.v1 as components
 import pandas as pd
 from datetime import datetime, timedelta
 import random
+import numpy as np
 
 # KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V5.1", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="TERMINAL V5.2", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #0e1117 0%, #1a1f2e 100%); color: #ffffff; }
@@ -21,6 +22,7 @@ div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20p
 .signal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,255,136,0.2); }
 .agg-box { background: rgba(28,33,40,0.8); padding: 12px; border-radius: 8px; 
            text-align: center; border: 1px solid #30363d; margin-bottom: 8px; }
+.rsi-adjust { font-size: 1.1rem; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,7 +78,11 @@ class SignalManager:
                 "analysis": random.choice([
                     "Wybicie z kanału H4", "RSI divergence", "Odbicie Fibonacci 61.8%", 
                     "Breakout trendline", "Opór kluczowy 1D", "Wsparcie wielodniowe", "MACD crossover"
-                ])
+                ]),
+                "ma20": random.choice(["KUPNO", "SPRZEDAŻ"]),
+                "ma50": random.choice(["KUPNO", "SPRZEDAŻ"]),
+                "macd": random.choice(["KUPNO", "SPRZEDAŻ"]),
+                "stoch": random.randint(20, 80)
             }
             signals.append(signal)
         return sorted(signals, key=lambda x: x['score'], reverse=True)
@@ -89,35 +95,73 @@ if 'active_signal' not in st.session_state:
 if 'view' not in st.session_state:
     st.session_state.view = "terminal"
 
-# SIDEBAR
+# SIDEBAR Z PRZYCISKIEM RANKING
 with st.sidebar:
-    st.markdown("### ⚙️ TERMINAL V5.1")
+    st.markdown("### ⚙️ TERMINAL V5.2")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 ODŚWIEŻ", use_container_width=True):
             st.session_state.signals = SignalManager.generate_signals()
             st.rerun()
     with col2:
-        if st.button("🏆 RANKING", use_container_width=True):
+        if st.button("🏆 RANKING AI", use_container_width=True):
             st.session_state.view = "ranking"
             st.rerun()
     st.markdown("---")
     st.info(f"📊 Sygnałów: **{len(st.session_state.signals)}**")
 
+def calculate_rsi_adjusted(rsi_base, timeframe):
+    """Dynamiczne RSI zależne od interwału"""
+    shifts = {
+        "1m": -25, "5m": -20, "15m": -15, "30m": -10, 
+        "1h": -5, "4h": 0, "1D": 5, "1W": 12, "1M": 20, "3M": 28, "1Y": 35
+    }
+    adjusted = max(10, min(90, rsi_base + shifts.get(timeframe, 0) + random.randint(-3,3)))
+    return adjusted
+
 def render_ranking():
-    st.title("🏆 RANKING SYGNAŁÓW")
+    st.title("🏆 RANKING AI - MULTI-INDYKATOROWY")
     if st.button("⬅️ TERMINAL", use_container_width=True):
         st.session_state.view = "terminal"
         st.rerun()
     
-    df = pd.DataFrame(st.session_state.signals[:10])
+    # Oblicz złożony score
+    ranked = []
+    for signal in st.session_state.signals:
+        # Multi-indicator score (0-100)
+        buy_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] 
+                          if 'KUPNO' in ind])
+        sell_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] 
+                           if 'SPRZEDAŻ' in ind])
+        rsi_score = 100 - abs(signal['rsi_base'] - 50) / 0.5  # Optymalne 50
+        composite_score = signal['score'] * 0.4 + (buy_signals * 20 if signal['type']=='KUPNO' else sell_signals * 20) + rsi_score * 0.3
+        
+        ranked.append({**signal, 'composite_score': composite_score})
+    
+    ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
+    
+    # TOP 10 tabela
+    df = pd.DataFrame(ranked[:10])
     st.dataframe(
-        df[['pair', 'score', 'type', 'src', 'in']].style
-        .background_gradient(subset=['score'], cmap='Greens')
-        .format({'score': '{:.0f}%', 'in': '{:.4f}'})
+        df[['pair', 'composite_score', 'type', 'src', 'rsi_base', 'ma20', 'ma50']].style
+        .background_gradient(subset=['composite_score'], cmap='Greens')
+        .format({'composite_score': '{:.1f}%', 'rsi_base': '{:.0f}'})
         .set_properties(**{'text-align': 'center'}),
         use_container_width=True, hide_index=True
     )
+    
+    st.markdown("### 📈 TOP 3 ANALIZA SZCZEGÓŁOWA")
+    for i, sig in enumerate(ranked[:3]):
+        with st.expander(f"#{i+1} {sig['pair']} ({sig['composite_score']:.1f}%)"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Score bazowy", f"{sig['score']}%")
+                st.metric("RSI", sig['rsi_base'])
+                st.metric("MA20", sig['ma20'])
+            with col2:
+                st.metric("MA50", sig['ma50'])
+                st.metric("MACD", sig['macd'])
+                st.metric("Stoch", f"{sig['stoch']:.0f}")
 
 def render_signal_card(signal, idx):
     color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
@@ -158,12 +202,15 @@ def render_detail_view(signal):
     with col1:
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Investing.com</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["inv"] else "#ff4b4b"};">{signal["inv"]}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">TradingView</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["tv"] else "#ff4b4b"};">{signal["tv"]}</div></div>', unsafe_allow_html=True)
-        rsi_color = "#ff4b4b" if signal['rsi_base'] > 70 else "#00ff88"
-        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">RSI 1D</div><div style="font-size: 1.1rem; font-weight: bold; color: {rsi_color};">{signal["rsi_base"]}</div></div>', unsafe_allow_html=True)
+        
+        # DYNAMICZNE RSI Z SUWAKIEM
+        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "3M", "1Y"], value="1D")
+        current_rsi = calculate_rsi_adjusted(signal['rsi_base'], tf)
+        rsi_color = "#ff4b4b" if current_rsi > 70 else "#00ff88" if current_rsi < 30 else "#ffffff"
+        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">RSI <span style="color:#aaa;">({tf})</span></div><div class="rsi-adjust" style="color: {rsi_color};">{current_rsi:.0f}</div></div>', unsafe_allow_html=True)
     
     with col2:
-        tf = st.select_slider("⏱️ Interwał", options=["1m", "5m", "15m", "1h", "4h", "1D"], value="1D")
-        tf_map = {"1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1D": "D"}
+        tf_map = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "4h": "240", "1D": "D", "1W": "W", "1M": "M", "3M": "3M", "1Y": "12M"}
         components.html(f"""
         <div class="tradingview-widget-container">
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
@@ -179,7 +226,7 @@ def render_detail_view(signal):
 if st.session_state.view == "ranking":
     render_ranking()
 else:
-    st.title("🚀 TERMINAL V5.1 | LIVE SIGNALS")
+    st.title("🚀 TERMINAL V5.2 | LIVE SIGNALS")
     h1, h2 = st.columns([3,1])
     with h1:
         st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)}**")
