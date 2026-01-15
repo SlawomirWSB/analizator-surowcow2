@@ -128,7 +128,7 @@ def render_ranking():
     
     st.markdown("### 📊 TOP 10 RANKING")
     
-    # Budowanie tabeli HTML jako jeden ciąg znaków
+    # NAPRAWA RANKINGU: Budowanie jednego ciągu znaków HTML i poprawne wyświetlanie tabeli
     html_table = "<table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>"
     for i, sig in enumerate(ranked[:10]):
         score_color = f"hsl({120 - (sig['composite_score']/100)*120}, 100%, 40%)"
@@ -174,7 +174,7 @@ def render_detail_view(signal):
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Investing.com</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["inv"] else "#ff4b4b"};">{signal["inv"]}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">TradingView</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["tv"] else "#ff4b4b"};">{signal["tv"]}</div></div>', unsafe_allow_html=True)
         
-        # POPRAWIONY SLIDER - Naprawiono błąd SyntaxError (domknięto cudzysłów i nawias)
+        # NAPRAWA BŁĘDU SYNTAX: Prawidłowe domknięcie nawiasów i cudzysłowów w sliderze
         tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "3M", "1Y"], value="1D")
         
         current_rsi = calculate_rsi_adjusted(signal['rsi_base'], tf)
