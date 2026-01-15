@@ -6,7 +6,7 @@ import random
 import numpy as np
 
 # KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V5.3", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="TERMINAL V5.4", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #0e1117 0%, #1a1f2e 100%); color: #ffffff; }
@@ -23,7 +23,6 @@ div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20p
 .agg-box { background: rgba(28,33,40,0.8); padding: 12px; border-radius: 8px; 
            text-align: center; border: 1px solid #30363d; margin-bottom: 8px; }
 .rsi-adjust { font-size: 1.1rem; font-weight: bold; }
-.sidebar .css-1d391kg {background-color: #161b22 !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,7 +47,7 @@ class SignalManager:
         
         signals = []
         for i in range(count):
-            now = datetime.now() - timedelta(minutes=i*45 + random.randint(0,30))  # NOWE CZASY
+            now = datetime.now() - timedelta(minutes=i*45 + random.randint(0,30))
             signal_type = random.choice(["KUPNO", "SPRZEDAŻ"])
             
             if "Oil" in pairs[i % len(pairs)]:
@@ -66,7 +65,7 @@ class SignalManager:
                 "sym": symbols[pairs[i % len(pairs)]],
                 "date": now.strftime("%d.%m"),
                 "hour": now.strftime("%H:%M"),
-                "timestamp": now.timestamp(),  # DO SORTowania
+                "timestamp": now.timestamp(),
                 "type": signal_type,
                 "in": f"{base_price:.4f}" if base_price < 100 else f"{base_price:.2f}",
                 "sl": f"{base_price + sl_offset:.4f}" if signal_type=="SPRZEDAŻ" else f"{base_price - abs(sl_offset):.4f}",
@@ -87,7 +86,7 @@ class SignalManager:
                 "stoch": random.randint(20, 80)
             }
             signals.append(signal)
-        return sorted(signals, key=lambda x: x['timestamp'], reverse=True)  # NAJNOWSZE GÓRĄ
+        return sorted(signals, key=lambda x: x['timestamp'], reverse=True)
 
 # SESJA
 if 'signals' not in st.session_state:
@@ -96,25 +95,6 @@ if 'active_signal' not in st.session_state:
     st.session_state.active_signal = st.session_state.signals[0]
 if 'view' not in st.session_state:
     st.session_state.view = "terminal"
-
-# SIDEBAR - DUŻY PRZYCISK RANKING
-with st.sidebar:
-    st.markdown("### 🚀 TERMINAL V5.3")
-    st.markdown("**📊 Live Signals**")
-    
-    col1, col2 = st.columns([1,1])
-    with col1:
-        if st.button("🔄 ODŚWIEŻ", use_container_width=True):
-            st.session_state.signals = SignalManager.generate_signals()
-            st.rerun()
-    with col2:
-        if st.button("🏆 RANKING AI", use_container_width=True, type="secondary"):
-            st.session_state.view = "ranking"
-            st.rerun()
-    
-    st.markdown("---")
-    st.success(f"📈 Sygnałów: **{len(st.session_state.signals)}**")
-    st.caption("**Najnowsze na górze**")
 
 def calculate_rsi_adjusted(rsi_base, timeframe):
     shifts = {
@@ -126,31 +106,53 @@ def calculate_rsi_adjusted(rsi_base, timeframe):
 
 def render_ranking():
     st.title("🏆 RANKING AI - MULTI-INDYKATOROWY")
-    col1, col2 = st.columns([3,1])
+    col1, col2, col3 = st.columns([3,1,1])
     with col2:
         if st.button("⬅️ TERMINAL", use_container_width=True):
             st.session_state.view = "terminal"
             st.rerun()
+    with col3:
+        if st.button("🔄 ODŚWIEŻ", use_container_width=True):
+            st.session_state.signals = SignalManager.generate_signals()
+            st.rerun()
     
+    # NAPRAWIONY RANKING - bez pandas styling errors
     ranked = []
     for signal in st.session_state.signals:
         buy_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'KUPNO' in ind])
         sell_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'SPRZEDAŻ' in ind])
-        rsi_score = 100 - abs(signal['rsi_base'] - 50) / 0.5
-        composite_score = signal['score'] * 0.4 + (buy_signals * 20 if signal['type']=='KUPNO' else sell_signals * 20) + rsi_score * 0.3
+        rsi_score = max(0, 100 - abs(signal['rsi_base'] - 50) * 2)
+        composite_score = min(100, signal['score'] * 0.4 + (buy_signals * 15 if signal['type']=='KUPNO' else sell_signals * 15) + rsi_score * 0.3)
         
         ranked.append({**signal, 'composite_score': composite_score})
     
     ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
     
-    df = pd.DataFrame(ranked[:10])
-    st.dataframe(
-        df[['pair', 'composite_score', 'type', 'src', 'rsi_base', 'ma20', 'ma50']].style
-        .background_gradient(subset=['composite_score'], cmap='Greens')
-        .format({'composite_score': '{:.1f}%', 'rsi_base': '{:.0f}'})
-        .set_properties(**{'text-align': 'center'}),
-        use_container_width=True, hide_index=True
-    )
+    # Prosta tabela HTML zamiast pandas
+    st.markdown("### 📊 TOP 10 RANKING")
+    html_table = """
+    <table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>
+    """
+    for i, sig in enumerate(ranked[:10]):
+        score_color = f"hsl({120 - (sig['composite_score']/100)*120}, 100%, 40%)"
+        html_table += f"""
+        <tr style='border-bottom: 1px solid #30363d;'>
+            <td style='padding: 12px; text-align: left; font-weight: bold;'>
+                #{i+1} {sig['pair']}
+            </td>
+            <td style='padding: 12px; text-align: center; color: {score_color}; font-size: 1.2rem; font-weight: bold;'>
+                {sig['composite_score']:.1f}%
+            </td>
+            <td style='padding: 12px; text-align: center; color: {"#00ff88" if sig['type']=='KUPNO' else "#ff4b4b"};'>
+                {sig['type']}
+            </td>
+            <td style='padding: 12px; text-align: center; font-size: 0.8rem; color: #8b949e;'>
+                {sig['src']}
+            </td>
+        </tr>
+        """
+    html_table += "</table>"
+    st.markdown(html_table, unsafe_allow_html=True)
 
 def render_signal_card(signal, idx):
     color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
@@ -160,7 +162,10 @@ def render_signal_card(signal, idx):
             <div>
                 <h4 style="margin: 0 0 8px 0; color: {color};">{signal['pair']}</h4>
                 <div style="font-size: 0.8rem; color: #00ff88; font-weight: bold;">
-                    {signal['hour']} <span style="color:#8b949e; font-weight:normal;">{signal['analysis']}</span>
+                    {signal['date']} {signal['hour']}
+                </div>
+                <div style="font-size: 0.75rem; color: #8b949e; margin-top: 4px;">
+                    {signal['analysis']}
                 </div>
             </div>
             <a href="{signal['url']}" target="_blank" 
@@ -203,7 +208,7 @@ def render_detail_view(signal):
         <div class="tradingview-widget-container">
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
             {{
-                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height: 400",
+                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 400,
                 "symbol": "{signal['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
             }}
             </script>
@@ -214,20 +219,24 @@ def render_detail_view(signal):
 if st.session_state.view == "ranking":
     render_ranking()
 else:
-    st.title("🚀 TERMINAL V5.3 | LIVE SIGNALS")
-    h1, h2 = st.columns([3,1])
+    st.title("🚀 TERMINAL V5.4 | LIVE SIGNALS")
+    h1, h2, h3 = st.columns([2,1,1])
     with h1:
         st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)} | NAJNOWSZE GÓRĄ**")
     with h2:
         if st.button("🔄 AKTUALIZUJ", use_container_width=True):
             st.session_state.signals = SignalManager.generate_signals()
             st.rerun()
+    with h3:
+        if st.button("🏆 RANKING AI", use_container_width=True):
+            st.session_state.view = "ranking"
+            st.rerun()
     
     col_left, col_right = st.columns([2, 3])
     
     with col_left:
         st.markdown("### 🔥 SYGNAŁY LIVE (NAJNOWSZE)")
-        for idx, signal in enumerate(st.session_state.signals):  # Już posortowane
+        for idx, signal in enumerate(st.session_state.signals):
             render_signal_card(signal, idx)
     
     with col_right:
