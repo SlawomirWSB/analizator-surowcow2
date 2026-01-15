@@ -116,19 +116,16 @@ def render_ranking():
             st.session_state.signals = SignalManager.generate_signals()
             st.rerun()
     
-    # NAPRAWIONY RANKING - bez pandas styling errors
     ranked = []
     for signal in st.session_state.signals:
         buy_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'KUPNO' in ind])
         sell_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'SPRZEDAŻ' in ind])
         rsi_score = max(0, 100 - abs(signal['rsi_base'] - 50) * 2)
         composite_score = min(100, signal['score'] * 0.4 + (buy_signals * 15 if signal['type']=='KUPNO' else sell_signals * 15) + rsi_score * 0.3)
-        
         ranked.append({**signal, 'composite_score': composite_score})
     
     ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
     
-    # Prosta tabela HTML zamiast pandas
     st.markdown("### 📊 TOP 10 RANKING")
     html_table = """
     <table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>
@@ -171,7 +168,7 @@ def render_signal_card(signal, idx):
             <a href="{signal['url']}" target="_blank" 
                style="color: #00ff88; text-decoration: none; font-size: 0.75rem; 
                       padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">
-               {signal['src']}
+                {signal['src']}
             </a>
         </div>
         <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; margin: 12px 0;">
@@ -197,47 +194,4 @@ def render_detail_view(signal):
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Investing.com</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["inv"] else "#ff4b4b"};">{signal["inv"]}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">TradingView</div><div style="font-size: 1.1rem; font-weight: bold; color: {"#00ff88" if "KUPNO" in signal["tv"] else "#ff4b4b"};">{signal["tv"]}</div></div>', unsafe_allow_html=True)
         
-        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "3M", "1Y"], value="1D")
-        current_rsi = calculate_rsi_adjusted(signal['rsi_base'], tf)
-        rsi_color = "#ff4b4b" if current_rsi > 70 else "#00ff88" if current_rsi < 30 else "#ffffff"
-        st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">RSI <span style="color:#aaa;">({tf})</span></div><div class="rsi-adjust" style="color: {rsi_color};">{current_rsi:.0f}</div></div>', unsafe_allow_html=True)
-    
-    with col2:
-        tf_map = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "4h": "240", "1D": "D", "1W": "W", "1M": "M", "3M": "3M", "1Y": "12M"}
-        components.html(f"""
-        <div class="tradingview-widget-container">
-            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-            {{
-                "interval": "{tf_map[tf]}", "width": "100%", "isTransparent": true, "height": 400,
-                "symbol": "{signal['sym']}", "showIntervalTabs": true, "locale": "pl", "colorTheme": "dark"
-            }}
-            </script>
-        </div>
-        """, height=420)
-
-# GŁÓWNY FLOW
-if st.session_state.view == "ranking":
-    render_ranking()
-else:
-    st.title("🚀 TERMINAL V5.4 | LIVE SIGNALS")
-    h1, h2, h3 = st.columns([2,1,1])
-    with h1:
-        st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)} | NAJNOWSZE GÓRĄ**")
-    with h2:
-        if st.button("🔄 AKTUALIZUJ", use_container_width=True):
-            st.session_state.signals = SignalManager.generate_signals()
-            st.rerun()
-    with h3:
-        if st.button("🏆 RANKING AI", use_container_width=True):
-            st.session_state.view = "ranking"
-            st.rerun()
-    
-    col_left, col_right = st.columns([2, 3])
-    
-    with col_left:
-        st.markdown("### 🔥 SYGNAŁY LIVE (NAJNOWSZE)")
-        for idx, signal in enumerate(st.session_state.signals):
-            render_signal_card(signal, idx)
-    
-    with col_right:
-        render_detail_view(st.session_state.active_signal)
+        tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W
