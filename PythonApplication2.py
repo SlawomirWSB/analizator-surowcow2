@@ -6,7 +6,7 @@ import random
 import numpy as np
 
 # KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V5.4", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="TERMINAL V5.5", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #0e1117 0%, #1a1f2e 100%); color: #ffffff; }
@@ -23,6 +23,9 @@ div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20p
 .agg-box { background: rgba(28,33,40,0.8); padding: 12px; border-radius: 8px; 
            text-align: center; border: 1px solid #30363d; margin-bottom: 8px; }
 .rsi-adjust { font-size: 1.1rem; font-weight: bold; }
+.ranking-table td { padding: 12px; text-align: center; border-bottom: 1px solid #30363d; }
+.ranking-table th { padding: 12px; background: rgba(0,255,136,0.1); color: #00ff88; font-weight: bold; }
+.ranking-score { font-size: 1.2rem; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,7 +108,9 @@ def calculate_rsi_adjusted(rsi_base, timeframe):
     return adjusted
 
 def render_ranking():
+    """NAPRAWIONY RANKING - BEZ PANDAS I HTML RAW"""
     st.title("🏆 RANKING AI - MULTI-INDYKATOROWY")
+    
     col1, col2, col3 = st.columns([3,1,1])
     with col2:
         if st.button("⬅️ TERMINAL", use_container_width=True):
@@ -116,43 +121,43 @@ def render_ranking():
             st.session_state.signals = SignalManager.generate_signals()
             st.rerun()
     
-    # NAPRAWIONY RANKING - bez pandas styling errors
-    ranked = []
+    # Oblicz ranking BEZ pandas
+    ranked_data = []
     for signal in st.session_state.signals:
-        buy_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'KUPNO' in ind])
-        sell_signals = sum([1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'SPRZEDAŻ' in ind])
+        # Bezpieczny composite score
+        buy_signals = sum(1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'KUPNO' in ind)
+        sell_signals = sum(1 for ind in [signal['inv'], signal['tv'], signal['ma20'], signal['ma50']] if 'SPRZEDAŻ' in ind)
         rsi_score = max(0, 100 - abs(signal['rsi_base'] - 50) * 2)
-        composite_score = min(100, signal['score'] * 0.4 + (buy_signals * 15 if signal['type']=='KUPNO' else sell_signals * 15) + rsi_score * 0.3)
+        composite_score = min(100, signal['score'] * 0.4 + max(buy_signals, sell_signals) * 15 + rsi_score * 0.3)
         
-        ranked.append({**signal, 'composite_score': composite_score})
+        ranked_data.append({
+            'rank': len(ranked_data) + 1,
+            'pair': signal['pair'],
+            'composite_score': round(composite_score, 1),
+            'type': signal['type'],
+            'src': signal['src'],
+            'rsi': signal['rsi_base'],
+            'ma20': signal['ma20']
+        })
     
-    ranked = sorted(ranked, key=lambda x: x['composite_score'], reverse=True)
+    # Sortuj i weź TOP 10
+    ranked_data = sorted(ranked_data, key=lambda x: x['composite_score'], reverse=True)[:10]
     
-    # Prosta tabela HTML zamiast pandas
+    # Prosta tabela Markdown
     st.markdown("### 📊 TOP 10 RANKING")
-    html_table = """
-    <table style='width:100%; border-collapse: collapse; background: rgba(22,27,34,0.9); border-radius: 8px; overflow: hidden;'>
-    """
-    for i, sig in enumerate(ranked[:10]):
-        score_color = f"hsl({120 - (sig['composite_score']/100)*120}, 100%, 40%)"
-        html_table += f"""
-        <tr style='border-bottom: 1px solid #30363d;'>
-            <td style='padding: 12px; text-align: left; font-weight: bold;'>
-                #{i+1} {sig['pair']}
-            </td>
-            <td style='padding: 12px; text-align: center; color: {score_color}; font-size: 1.2rem; font-weight: bold;'>
-                {sig['composite_score']:.1f}%
-            </td>
-            <td style='padding: 12px; text-align: center; color: {"#00ff88" if sig['type']=='KUPNO' else "#ff4b4b"};'>
-                {sig['type']}
-            </td>
-            <td style='padding: 12px; text-align: center; font-size: 0.8rem; color: #8b949e;'>
-                {sig['src']}
-            </td>
-        </tr>
-        """
-    html_table += "</table>"
-    st.markdown(html_table, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.markdown("**#**")
+    with col2: st.markdown("**Para**")
+    with col3: st.markdown("**Score**")
+    with col4: st.markdown("**Typ**")
+    
+    for item in ranked_data:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1: st.markdown(f"**#{item['rank']}**")
+        with col2: st.markdown(f"**{item['pair']}**")
+        with col3: st.markdown(f"<span style='color: hsl(120, 100%, 50%); font-size: 1.2rem; font-weight: bold;'>{item['composite_score']}%</span>", unsafe_allow_html=True)
+        with col4: st.markdown(f"**{item['type']}** | {item['src']}")
 
 def render_signal_card(signal, idx):
     color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
@@ -219,7 +224,7 @@ def render_detail_view(signal):
 if st.session_state.view == "ranking":
     render_ranking()
 else:
-    st.title("🚀 TERMINAL V5.4 | LIVE SIGNALS")
+    st.title("🚀 TERMINAL V5.5 | LIVE SIGNALS")
     h1, h2, h3 = st.columns([2,1,1])
     with h1:
         st.markdown(f"**LIVE INSTRUMENTÓW: {len(st.session_state.signals)} | NAJNOWSZE GÓRĄ**")
