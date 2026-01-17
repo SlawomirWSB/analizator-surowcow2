@@ -1,9 +1,3 @@
-
-To fix the `KeyError` when accessing the `live` key in `st.session_state.signals`, we need to handle cases where the key might be missing (though our data structure includes it, this ensures robustness). We'll use the `.get()` method with a default value (`False`) to avoid the error.
-
-Here's the corrected code:
-
-```python
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
@@ -58,22 +52,19 @@ def scrape_bestfreesignal():
                 "full_date": "2026-01-14 22:00:26", "type": "SPRZEDAŻ", "in": "1.16825", 
                 "sl": "1.18056", "tp": "1.16210", "src": "BESTFREESIGNAL", 
                 "url": "https://www.bestfreesignal.com/free-signal/eurusd/87",
-                "live": True, "score": 92, "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ",
-                "rsi_base": 45, "ma20": "SPRZEDAŻ", "ma50": "SPRZEDAŻ"
+                "live": True, "score": 92
             },
             {
                 "pair": "NZDUSD", "sym": "FX:NZDUSD", "date": "15.01", "hour": "05:00", 
                 "full_date": "2026-01-15 05:00:00", "type": "SPRZEDAŻ", "in": "0.57480", 
                 "sl": "0.57844", "tp": "0.57298", "src": "BESTFREESIGNAL", 
-                "url": "https://www.bestfreesignal.com", "live": True, "score": 89,
-                "inv": "SPRZEDAŻ", "tv": "SPRZEDAŻ", "rsi_base": 38, "ma20": "SPRZEDAŻ", "ma50": "NEUTRAL"
+                "url": "https://www.bestfreesignal.com", "live": True, "score": 89
             },
             {
                 "pair": "XAUUSD", "sym": "OANDA:XAUUSD", "date": "15.01", "hour": "00:45", 
                 "full_date": "2026-01-15 00:45:00", "type": "KUPNO", "in": "4615.905", 
                 "sl": "4402.703", "tp": "4722.506", "src": "BESTFREESIGNAL", 
-                "url": "https://www.bestfreesignal.com", "live": True, "score": 95,
-                "inv": "KUPNO", "tv": "SILNE KUPNO", "rsi_base": 62, "ma20": "KUPNO", "ma50": "KUPNO"
+                "url": "https://www.bestfreesignal.com", "live": True, "score": 95
             }
         ]
         return real_signals
@@ -173,7 +164,7 @@ def render_ranking():
         ranked_data.append({
             'rank': len(ranked_data) + 1, 'pair': signal['pair'], 'composite_score': round(composite_score, 1),
             'type': signal['type'], 'src': signal['src'], 'rsi': signal.get('rsi_base', 50),
-            'live': signal.get('live', False)
+            'live': signal['live']
         })
     
     ranked_data = sorted(ranked_data, key=lambda x: x['composite_score'], reverse=True)[:10]
@@ -194,7 +185,7 @@ def render_ranking():
 
 def render_signal_card(signal, idx):
     color = "#00ff88" if signal['type'] == "KUPNO" else "#ff4b4b"
-    card_class = "live-signal" if signal.get('live', False) else "sim-signal"
+    card_class = "live-signal" if signal['live'] else "sim-signal"
     
     st.markdown(f"""
     <div class="signal-card {card_class}">
@@ -211,7 +202,7 @@ def render_signal_card(signal, idx):
             <a href="{signal['url']}" target="_blank" 
                style="color: #00ff88; text-decoration: none; font-size: 0.75rem; 
                       padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;">
-               {signal['src']}{' 🔴' if signal.get('live', False) else ' 🟡'}
+               {signal['src']}{' 🔴' if signal['live'] else ' 🟡'}
             </a>
         </div>
         <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; margin: 12px 0;">
@@ -230,12 +221,12 @@ def render_signal_card(signal, idx):
         st.rerun()
 
 def render_detail_view(signal):
-    st.subheader(f"🔬 **{signal['pair']}** | {signal['type']} | Score: {signal['score']}% | {signal['src']}{' 🔴 LIVE' if signal.get('live', False) else ' 🟡 AI'}")
+    st.subheader(f"🔬 **{signal['pair']}** | {signal['type']} | Score: {signal['score']}% | {signal['src']}{' 🔴 LIVE' if signal['live'] else ' 🟡 AI'}")
     
     col1, col2 = st.columns([1, 2])
     with col1:
         st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Źródło</div><div style="font-size: 1.1rem; font-weight: bold; color: #00ff88;">{signal["src"]}</div></div>', unsafe_allow_html=True)
-        if signal.get('live', False):
+        if signal['live']:
             st.markdown(f'<div class="agg-box"><div style="font-size: 0.75rem; color: #8b949e;">Data</div><div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{signal["full_date"]}</div></div>', unsafe_allow_html=True)
         
         tf = st.select_slider("⏱️ Interwał RSI", options=["1m", "5m", "15m", "30m", "1h", "4h", "1D"], value="1D")
@@ -263,7 +254,7 @@ else:
     st.title("🚀 TERMINAL V6.0 | LIVE + AI SIGNALS")
     h1, h2, h3 = st.columns([2,1,1])
     with h1:
-        live_count = len([s for s in st.session_state.signals if s.get('live', False)])
+        live_count = len([s for s in st.session_state.signals if s['live']])
         st.markdown(f"**LIVE SIGNALS: {live_count} | AI: {len(st.session_state.signals)-live_count} | NAJNOWSZE GÓRĄ**")
     with h2:
         if st.button("🔄 AKTUALIZUJ", use_container_width=True):
@@ -285,4 +276,3 @@ else:
     
     with col_right:
         render_detail_view(st.session_state.active_signal)
-```
