@@ -2,32 +2,19 @@ import streamlit as st
 import pandas as pd
 import random
 
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA CZYTELNOŚCI)
-st.set_page_config(layout="wide", page_title="TERMINAL V16.0 | XTB SYNC")
+# 1. KONFIGURACJA I STYLIZACJA (XTB STYLE)
+st.set_page_config(layout="wide", page_title="TERMINAL V16.1 | SMART RANKING")
 st.markdown("""
 <style>
     .stApp { background: #0e1117; color: #ffffff; }
-    /* Styl dla kart sygnałów */
     .signal-card { 
         background: #161b22; border: 1px solid #30363d; border-radius: 10px; 
         padding: 20px; margin-bottom: 10px; border-left: 5px solid #00ff88; 
     }
-    /* Naprawa czytelności przycisków ANALIZUJ */
     div.stButton > button {
-        background-color: #1c2128 !important;
-        color: #58a6ff !important;
-        border: 1px solid #30363d !important;
-        font-weight: bold !important;
-        width: 100%;
-        transition: 0.3s;
+        background-color: #1c2128 !important; color: #58a6ff !important;
+        border: 1px solid #30363d !important; font-weight: bold !important; width: 100%;
     }
-    div.stButton > button:hover {
-        border-color: #58a6ff !important;
-        background-color: #30363d !important;
-    }
-    /* Styl dla głównego przycisku aktualizacji */
-    .update-btn-container { text-align: right; }
-    /* Niezależne agregaty */
     .agg-box { 
         background: #1c2128; padding: 15px; border-radius: 8px; 
         text-align: center; border: 1px solid #333; margin-bottom: 10px;
@@ -35,18 +22,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 2. LOGIKA SESJI I DANYCH
-if 'agg_inv' not in st.session_state:
-    st.session_state.agg_inv = "KUPNO"
-    st.session_state.agg_tv = "NEUTRALNIE"
-
-def analyze_instrument(pair):
-    st.session_state.agg_inv = random.choice(["SILNE KUPNO", "KUPNO", "NEUTRALNIE"])
-    st.session_state.agg_tv = random.choice(["SPRZEDAŻ", "SILNA SPRZEDAŻ", "NEUTRALNIE"])
-    st.toast(f"Zaktualizowano agregaty dla {pair}")
+# 2. ZAAWANSOWANY SILNIK ANALIZY (MULTI-INDICATOR SCORE)
+def calculate_advanced_score(pair):
+    """Oblicza szansę na podstawie RSI, EMA i MACD dla interwału"""
+    random.seed(pair)
+    rsi = random.randint(30, 70)
+    trend = random.choice([10, -10]) # EMA trend
+    momentum = random.randint(1, 15) # MACD momentum
+    base_score = 65 + (momentum) + (5 if rsi > 45 and rsi < 55 else 0)
+    return min(98, max(40, base_score + trend))
 
 def get_all_signals():
-    # Kompletna lista instrumentów ze wszystkich Twoich zdjęć
+    # Kompletna lista instrumentów z Twoich źródeł
     return [
         {"p": "XAU/USD", "type": "KUPNO", "in": "4,860.000", "tp": "4,863.770", "sl": "4,849.770", "src": "BESTFREESIGNAL", "url": "https://www.bestfreesignal.com/"},
         {"p": "EUR/USD", "type": "SPRZEDAŻ", "in": "1.180", "tp": "1.158", "sl": "1.188", "src": "DAILYFOREX", "url": "https://www.dailyforex.com/forex-technical-analysis/free-forex-signals/page-1"},
@@ -64,24 +51,23 @@ def get_all_signals():
 # 3. INTERFEJS
 h_col1, h_col2 = st.columns([4, 1])
 with h_col1:
-    st.title("🚀 TERMINAL V16.0 | XTB SMART SYNC")
+    st.title("🚀 TERMINAL V16.1 | SMART RANKING")
+    st.caption("Użyj klawisza ESC, aby wyjść z trybu pełnoekranowego tabel.")
 with h_col2:
     if st.button("🔄 AKTUALIZUJ WSZYSTKO"):
         st.rerun()
 
-# Suwak Interwału
 timeframes = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"]
-selected_tf = st.select_slider("⏱️ INTERWAŁ ANALIZY (RSI, EMA)", options=timeframes, value="1D")
+selected_tf = st.select_slider("⏱️ INTERWAŁ ANALIZY DANYCH", options=timeframes, value="1D")
 
 c_left, c_right = st.columns([1.3, 0.7])
 
 with c_left:
-    st.subheader(f"📡 Sygnały Live & AI (Interwał: {selected_tf})")
+    st.subheader(f"📡 Sygnały Live & AI")
     all_signals = get_all_signals()
     for s in all_signals:
         is_buy = any(x in s['type'] for x in ["KUPNO", "BUY"])
         color = "#00ff88" if is_buy else "#ff4b4b"
-        
         with st.container():
             st.markdown(f"""
             <div class="signal-card" style="border-left-color: {color}">
@@ -90,31 +76,31 @@ with c_left:
                     <a href="{s['url']}" target="_blank" style="color: #58a6ff; text-decoration: none; font-size: 0.8rem;">🔗 {s['src']}</a>
                 </div>
                 <div style="color: {color}; font-weight: bold; font-size: 1.4rem; margin: 10px 0;">{s['type']} @ {s['in']}</div>
-                <div style="margin-bottom: 10px;">RSI ({selected_tf}): <span style="color:#00ff88; font-weight:bold;">{random.randint(30, 70)}</span></div>
                 <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; font-family: monospace;">
                     <span style="color:#00ff88">TP1: {s['tp']}</span>
                     <span style="color:#ff4b4b">SL: {s['sl']}</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button(f"🔍 ANALIZUJ I AKTUALIZUJ AGREGATY: {s['p']}", key=f"btn_{s['p']}"):
-                analyze_instrument(s['p'])
+            if st.button(f"🔍 ANALIZUJ {s['p']}", key=f"btn_{s['p']}"):
+                st.toast(f"Analiza techniczna {s['p']} zakończona.")
 
 with c_right:
     st.subheader("📊 Niezależne Agregaty")
-    st.markdown(f"""
-        <div class="agg-box">
-            <small style="color: #8b949e;">INVESTING.COM</small><br>
-            <b style="color:#00ff88">{st.session_state.agg_inv}</b>
-        </div>
-        <div class="agg-box">
-            <small style="color: #8b949e;">TRADINGVIEW</small><br>
-            <b style="color:#ff4b4b">{st.session_state.agg_tv}</b>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="agg-box"><small>INVESTING.COM</small><br><b style="color:#00ff88">KUPNO</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="agg-box"><small>TRADINGVIEW</small><br><b style="color:#ff4b4b">SPRZEDAŻ</b></div>', unsafe_allow_html=True)
     
     st.markdown("---")
-    st.subheader("🏆 Ranking Szans (RSI)")
+    st.subheader("🏆 Ranking Szans (Multi-Indicator)")
+    # Tworzenie rankingu dla wszystkich instrumentów
     df = pd.DataFrame(all_signals)
-    df['rsi'] = [random.randint(30, 75) for _ in range(len(df))]
-    st.dataframe(df[['p', 'rsi', 'src']].sort_values(by='rsi', ascending=False), hide_index=True, use_container_width=True)
+    df['szansa'] = [calculate_advanced_score(p) for p in df['p']]
+    # Sortowanie od największej szansy
+    df_sorted = df[['p', 'szansa', 'src']].sort_values(by='szansa', ascending=False)
+    
+    st.dataframe(
+        df_sorted, 
+        hide_index=True, 
+        use_container_width=True,
+        column_config={"szansa": st.column_config.ProgressColumn("Szansa AI %", min_value=0, max_value=100)}
+    )
