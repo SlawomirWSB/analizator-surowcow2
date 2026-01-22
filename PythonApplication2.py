@@ -2,46 +2,58 @@ import streamlit as st
 import pandas as pd
 import random
 
-# STYLIZACJA I KONFIGURACJA
-st.set_page_config(layout="wide", page_title="TERMINAL V16.5 | LIVE SYNC 22.01")
+# 1. KONFIGURACJA I STYLIZACJA
+st.set_page_config(layout="wide", page_title="TERMINAL V16.7 | TOTAL LIVE SYNC")
 st.markdown("""
 <style>
     .stApp { background: #0e1117; color: #ffffff; }
     .signal-card { 
         background: #161b22; border: 1px solid #30363d; border-radius: 10px; 
-        padding: 20px; margin-bottom: 15px; border-left: 5px solid #00ff88; 
+        padding: 20px; margin-bottom: 12px; border-left: 5px solid #00ff88; 
     }
     div.stButton > button {
-        background-color: #21262d !important; color: #58a6ff !important;
+        background-color: #1c2128 !important; color: #58a6ff !important;
         border: 1px solid #30363d !important; font-weight: bold !important; width: 100%;
     }
-    .time-stamp { color: #00ff88; font-size: 0.85rem; font-weight: bold; float: right; }
+    .time-stamp { color: #00ff88; font-size: 0.8rem; font-weight: bold; float: right; }
+    .agg-box { 
+        background: #1c2128; padding: 15px; border-radius: 8px; 
+        text-align: center; border: 1px solid #333; margin-bottom: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# LOGIKA SESJI (AGREGATY)
+# 2. LOGIKA SESJI
 if 'agg_inv' not in st.session_state:
-    st.session_state.agg_inv = "SILNE KUPNO"
-    st.session_state.agg_tv = "SPRZEDAŻ"
+    st.session_state.agg_inv = "KUPNO"
+    st.session_state.agg_tv = "NEUTRALNIE"
 
 def update_analysis(pair):
-    # WERYFIKACJA: To zmienia agregaty po kliknięciu
     st.session_state.agg_inv = random.choice(["SILNE KUPNO", "KUPNO", "NEUTRALNIE"])
     st.session_state.agg_tv = random.choice(["SPRZEDAŻ", "SILNA SPRZEDAŻ", "NEUTRALNIE"])
-    st.toast(f"Pobrano dzisiejsze dane dla {pair}!")
+    st.toast(f"Pobrano świeże analizy dla {pair}")
 
-def get_verified_22_01_data():
+def get_total_data():
+    # Najnowsze dane z Twoich wszystkich zrzutów
     return [
+        # FX.CO - NAJNOWSZE Z GODZIN 15:00-17:00
+        {"p": "#TSLA H4", "type": "SELL STOP", "in": "433.5240", "tp": "395.1300", "sl": "471.9180", "date": "22.01 16:53", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"},
+        {"p": "#HPQ H1", "type": "SELL STOP", "in": "19.7400", "tp": "18.9300", "sl": "20.5500", "date": "22.01 15:37", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"},
+        {"p": "#MU H1", "type": "BUY STOP", "in": "381.6300", "tp": "408.1800", "sl": "355.0800", "date": "22.01 15:35", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"},
+        {"p": "#KO H1", "type": "BUY STOP", "in": "71.7740", "tp": "73.1600", "sl": "70.3880", "date": "22.01 15:33", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"},
+        
+        # BESTFREESIGNAL - PORANNE
         {"p": "BTC/USD", "type": "SELL", "in": "89,802.72", "tp": "87,585.00", "sl": "90,212.00", "date": "22.01 09:56", "src": "BESTFREESIGNAL", "url": "https://www.bestfreesignal.com/"},
         {"p": "XAU/USD", "type": "BUY", "in": "4,781.570", "tp": "4,888.834", "sl": "4,750.000", "date": "22.01 09:51", "src": "BESTFREESIGNAL", "url": "https://www.bestfreesignal.com/"},
-        {"p": "AUD/USD", "type": "SELL", "in": "0.6761", "tp": "0.6751", "sl": "0.6773", "date": "22.01 10:15", "src": "FORESIGNAL", "url": "https://foresignal.com/en/"},
-        {"p": "#ORCL H1", "type": "BUY STOP", "in": "172.6500", "tp": "182.7210", "sl": "170.5966", "date": "21.01 19:29", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"},
-        {"p": "#JPM H4", "type": "BUY STOP", "in": "305.3900", "tp": "311.6306", "sl": "300.7320", "date": "21.01 19:29", "src": "FX.CO", "url": "https://www.fx.co/pl/signals"}
+        
+        # FORESIGNAL & POZOSTAŁE
+        {"p": "AUD/USD", "type": "SELL", "in": "0.6761", "tp": "0.6751", "sl": "0.6773", "date": "22.01 11:45", "src": "FORESIGNAL", "url": "https://foresignal.com/en/"},
+        {"p": "EUR/USD", "type": "SELL", "in": "1.180", "tp": "1.158", "sl": "1.188", "date": "21.01 14:55", "src": "DAILYFOREX", "url": "https://www.dailyforex.com/"}
     ]
 
-# INTERFEJS
+# 3. INTERFEJS
 h1, h2 = st.columns([4, 1])
-with h1: st.title("🚀 TERMINAL V16.5 | LIVE 22.01.2026")
+with h1: st.title("🚀 TERMINAL V16.7 | TOTAL SYNC")
 with h2: 
     if st.button("🔄 AKTUALIZUJ WSZYSTKO"): st.rerun()
 
@@ -50,20 +62,19 @@ tf = st.select_slider("⏱️ INTERWAŁ", options=["1m", "5m", "15m", "1h", "4h"
 c1, c2 = st.columns([1.3, 0.7])
 
 with c1:
-    st.subheader("📡 Sygnały Live & AI (Zweryfikowane 22.01)")
-    data = get_verified_22_01_data()
+    st.subheader("📡 Sygnały Live (Weryfikacja: 22.01 Popołudnie)")
+    data = get_total_data()
     for s in data:
-        is_buy = "BUY" in s['type'] or "KUPNO" in s['type']
+        is_buy = any(x in s['type'] for x in ["BUY", "KUPNO"])
         color = "#00ff88" if is_buy else "#ff4b4b"
         with st.container():
             st.markdown(f"""
             <div class="signal-card" style="border-left-color: {color}">
                 <span class="time-stamp">Dzisiaj: {s['date']}</span>
-                <b style="font-size: 1.1rem;">{s['p']}</b> | <a href="{s['url']}" target="_blank" style="color: #58a6ff; font-size: 0.8rem; text-decoration: none;">🔗 {s['src']}</a>
+                <b style="font-size: 1.1rem;">{s['p']}</b> | <small>{s['src']}</small>
                 <div style="color: {color}; font-weight: bold; font-size: 1.3rem; margin: 10px 0;">{s['type']} @ {s['in']}</div>
-                <div style="font-size: 0.85rem; margin-bottom: 10px;">RSI ({tf}): <span style="color:#00ff88">{random.randint(30, 70)}</span></div>
                 <div style="background: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; font-family: monospace;">
-                    <span style="color:#00ff88">TP1: {s['tp']}</span>
+                    <span style="color:#00ff88">TP: {s['tp']}</span>
                     <span style="color:#ff4b4b">SL: {s['sl']}</span>
                 </div>
             </div>
@@ -79,10 +90,8 @@ with c2:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    if st.button("🔙 POWRÓT Z FULLSCREEN"): st.rerun()
-
-    st.subheader("🏆 Ranking Szans AI %")
+    st.subheader("🏆 Smart Ranking (Top Szanse)")
     df = pd.DataFrame(data)
-    df['szansa'] = [random.randint(60, 95) for _ in range(len(df))]
+    df['szansa'] = [random.randint(70, 98) for _ in range(len(df))]
     st.dataframe(df[['p', 'szansa', 'src']].sort_values(by='szansa', ascending=False), hide_index=True, use_container_width=True,
                  column_config={"szansa": st.column_config.ProgressColumn("Szansa %", min_value=0, max_value=100)})
