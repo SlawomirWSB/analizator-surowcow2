@@ -50,41 +50,61 @@ if 'signals_data' not in st.session_state:
 # --- FUNKCJE SCRAPINGU ---
 
 def parse_bestfreesignal():
-    """Scraping z BestFreeSignal.com"""
+    """Scraping z BestFreeSignal.com - tabela z tr/td"""
     signals = []
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get('https://www.bestfreesignal.com/', headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Szukamy kart sygnałów
-        signal_cards = soup.find_all('div', class_=['signal-card', 'signal', 'trade-signal'])
+        # Znajdujemy tabelę z sygnałami
+        table = soup.find('table', class_=['table-bordered', 'table'])
+        if not table:
+            return signals
+            
+        rows = table.find_all('tr')[1:]  # Pomijamy nagłówek
         
-        for card in signal_cards[:10]:  # Max 10 sygnałów
+        for row in rows:
             try:
-                # Parsowanie danych (dostosuj selektory do rzeczywistej struktury HTML)
-                pair = card.find(['h3', 'h4', 'span'], class_=['pair', 'symbol', 'currency-pair'])
-                signal_type = card.find(['span', 'div'], class_=['type', 'direction', 'signal-type'])
-                entry = card.find(['span', 'div'], text=re.compile(r'Entry|entry|ENTRY'))
-                tp = card.find(['span', 'div'], text=re.compile(r'TP|Take Profit|take profit'))
-                sl = card.find(['span', 'div'], text=re.compile(r'SL|Stop Loss|stop loss'))
+                cells = row.find_all('td')
+                if len(cells) < 6:
+                    continue
                 
-                if pair and signal_type:
-                    signals.append({
-                        'p': pair.text.strip(),
-                        'type': signal_type.text.strip().upper(),
-                        'in': entry.text.strip() if entry else 'N/A',
-                        'tp': tp.text.strip() if tp else 'N/A',
-                        'sl': sl.text.strip() if sl else 'N/A',
-                        'date': datetime.now().strftime("%d.%m %H:%M"),
-                        'src': 'BESTFREESIGNAL',
-                        'url': 'https://www.bestfreesignal.com/'
-                    })
+                # Sprawdź czy nie jest "Expired"
+                status = row.find('span', string='Expired')
+                if status:
+                    continue
+                    
+                date_cell = cells[0].get_text(strip=True)
+                pair = cells[1].get_text(strip=True)
+                action = cells[2].get_text(strip=True)
+                entry = cells[3].get_text(strip=True).replace('$', '').replace(',', '')
+                sl = cells[4].get_text(strip=True).replace('$', '').replace(',', '')
+                tp = cells[5].get_text(strip=True).split('\n')[0].replace('$', '').replace(',', '')
+                
+                # Parsuj datę
+                try:
+                    date_parts = date_cell.split('\n')[0].strip()
+                    signal_date = datetime.strptime(date_parts, '%Y-%m-%d %H:%M:%S')
+                    date_str = signal_date.strftime("%d.%m %H:%M")
+                except:
+                    date_str = datetime.now().strftime("%d.%m %H:%M")
+                
+                signals.append({
+                    'p': pair,
+                    'type': action.upper(),
+                    'in': entry,
+                    'tp': tp,
+                    'sl': sl,
+                    'date': date_str,
+                    'src': 'BESTFREESIGNAL',
+                    'url': 'https://www.bestfreesignal.com/'
+                })
             except Exception as e:
                 continue
                 
     except Exception as e:
-        st.warning(f"Błąd BestFreeSignal: {str(e)[:100]}")
+        st.warning(f"⚠️ BestFreeSignal: {str(e)[:100]}")
     
     return signals
 
@@ -97,22 +117,21 @@ def parse_dailyforex():
                               headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Szukamy tabel lub kart z sygnałami
-        signal_rows = soup.find_all(['tr', 'div'], class_=['signal-row', 'signal', 'forecast'])
+        # DailyForex używa divów, nie tabel - trzeba dostosować do rzeczywistej struktury
+        recommendations = soup.find_all('div', class_='live-recommendations')
         
-        for row in signal_rows[:10]:
+        for rec in recommendations[:10]:
             try:
-                pair = row.find(['td', 'span', 'h3'], class_=['pair', 'symbol', 'currency'])
-                signal_type = row.find(['td', 'span'], class_=['direction', 'recommendation'])
-                price_data = row.find_all(['td', 'span'], class_=['price', 'level'])
+                pair_elem = rec.find('h3') or rec.find('span', class_='pair')
+                action_elem = rec.find('span', string=re.compile(r'Sell|Buy'))
                 
-                if pair and signal_type:
+                if pair_elem and action_elem:
                     signals.append({
-                        'p': pair.text.strip(),
-                        'type': signal_type.text.strip().upper(),
-                        'in': price_data[0].text.strip() if len(price_data) > 0 else 'N/A',
-                        'tp': price_data[1].text.strip() if len(price_data) > 1 else 'N/A',
-                        'sl': price_data[2].text.strip() if len(price_data) > 2 else 'N/A',
+                        'p': pair_elem.get_text(strip=True),
+                        'type': action_elem.get_text(strip=True).upper(),
+                        'in': 'N/A',
+                        'tp': 'N/A',
+                        'sl': 'N/A',
                         'date': datetime.now().strftime("%d.%m %H:%M"),
                         'src': 'DAILYFOREX',
                         'url': 'https://www.dailyforex.com/forex-technical-analysis/free-forex-signals/page-1'
@@ -121,81 +140,134 @@ def parse_dailyforex():
                 continue
                 
     except Exception as e:
-        st.warning(f"Błąd DailyForex: {str(e)[:100]}")
+        st.warning(f"⚠️ DailyForex: {str(e)[:100]}")
     
     return signals
 
 def parse_foresignal():
-    """Scraping z ForeSignal.com"""
+    """Scraping z ForeSignal.com - struktura z div.signal-card"""
     signals = []
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get('https://foresignal.com/en/', headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Struktura może zawierać karty lub tabelę
-        signal_items = soup.find_all(['div', 'tr'], class_=['signal', 'trade', 'forecast-item'])
+        # Szukamy kart sygnałów
+        signal_cards = soup.find_all('div', class_='signal-card')
         
-        for item in signal_items[:10]:
+        for card in signal_cards:
             try:
-                pair = item.find(['span', 'td', 'h4'], class_=['symbol', 'pair', 'currency'])
-                direction = item.find(['span', 'td'], class_=['action', 'direction', 'type'])
-                levels = item.find_all(['span', 'td'], class_=['price', 'level', 'value'])
+                # Sprawdź czy nie jest "Filled"
+                if 'Filled' in card.get_text():
+                    continue
                 
-                if pair and direction:
-                    signals.append({
-                        'p': pair.text.strip(),
-                        'type': direction.text.strip().upper(),
-                        'in': levels[0].text.strip() if len(levels) > 0 else 'N/A',
-                        'tp': levels[1].text.strip() if len(levels) > 1 else 'N/A',
-                        'sl': levels[2].text.strip() if len(levels) > 2 else 'N/A',
-                        'date': datetime.now().strftime("%d.%m %H:%M"),
-                        'src': 'FORESIGNAL',
-                        'url': 'https://foresignal.com/en/'
-                    })
-            except:
+                # Znajdź typ sygnału (Buy/Sell) - z koloru tła
+                card_body = card.find('div', class_='card-body')
+                if not card_body:
+                    continue
+                    
+                # Zielone tło = Buy, inne = Sell
+                is_buy = 'signal-card.buy' in str(card.get('class', []))
+                signal_type = 'BUY' if is_buy else 'SELL'
+                
+                # Znajdź parę walutową (w nagłówku)
+                header = card.find('div', class_='signal-header')
+                pair = header.get_text(strip=True) if header else 'N/A'
+                
+                # Znajdź poziomy cenowe
+                rows = card.find_all('div', class_='d-flex')
+                buy_at = ''
+                take_profit = ''
+                stop_loss = ''
+                
+                for row in rows:
+                    text = row.get_text()
+                    if 'Buy at' in text or 'Sold at' in text or 'Bought at' in text:
+                        buy_at = text.split()[-1]
+                    elif 'Take profit' in text:
+                        take_profit = text.split()[-1]
+                    elif 'Stop loss' in text:
+                        stop_loss = text.split()[-1]
+                
+                signals.append({
+                    'p': pair,
+                    'type': signal_type,
+                    'in': buy_at or 'N/A',
+                    'tp': take_profit or 'N/A',
+                    'sl': stop_loss or 'N/A',
+                    'date': datetime.now().strftime("%d.%m %H:%M"),
+                    'src': 'FORESIGNAL',
+                    'url': 'https://foresignal.com/en/'
+                })
+            except Exception as e:
                 continue
                 
     except Exception as e:
-        st.warning(f"Błąd ForeSignal: {str(e)[:100]}")
+        st.warning(f"⚠️ ForeSignal: {str(e)[:100]}")
     
     return signals
 
 def parse_fxco():
-    """Scraping z FX.co"""
+    """Scraping z FX.co - struktura block-signals__item"""
     signals = []
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get('https://www.fx.co/pl/signals', headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Szukamy sygnałów w strukturze strony
-        signal_blocks = soup.find_all(['div', 'article'], class_=['signal', 'trade-signal', 'signal-item'])
+        # Szukamy bloków z sygnałami
+        signal_blocks = soup.find_all('div', class_='block-signals__item')
         
         for block in signal_blocks[:10]:
             try:
-                symbol = block.find(['h3', 'span'], class_=['symbol', 'pair', 'instrument'])
-                action = block.find(['span', 'div'], class_=['action', 'type', 'direction'])
-                entry_price = block.find(text=re.compile(r'Entry|Wejście'))
-                tp_price = block.find(text=re.compile(r'TP|Take Profit|Cel'))
-                sl_price = block.find(text=re.compile(r'SL|Stop Loss'))
+                # Znajdź informacje o sygnale w span.block-signals__info
+                info_spans = block.find_all('span', class_='block-signals__info')
                 
-                if symbol and action:
-                    signals.append({
-                        'p': symbol.text.strip(),
-                        'type': action.text.strip().upper(),
-                        'in': entry_price.parent.text.strip() if entry_price else 'N/A',
-                        'tp': tp_price.parent.text.strip() if tp_price else 'N/A',
-                        'sl': sl_price.parent.text.strip() if sl_price else 'N/A',
-                        'date': datetime.now().strftime("%d.%m %H:%M"),
-                        'src': 'FX.CO',
-                        'url': 'https://www.fx.co/pl/signals'
-                    })
-            except:
+                if len(info_spans) < 2:
+                    continue
+                
+                # Pierwszy span = instrument i interwał (np. "GOLD H1")
+                instrument_text = info_spans[0].get_text(strip=True)
+                
+                # Znajdź typ sygnału (SELL STOP / BUY STOP)
+                signal_type_elem = block.find('div', string=re.compile(r'Sell Stop|Buy Stop', re.IGNORECASE))
+                signal_type = signal_type_elem.get_text(strip=True).upper() if signal_type_elem else 'N/A'
+                
+                # Znajdź poziomy TP, SL, P (cena wejścia)
+                tp_elem = block.find(string=re.compile(r'TP:'))
+                sl_elem = block.find(string=re.compile(r'SL:'))
+                p_elem = block.find(string=re.compile(r'P:'))
+                
+                tp = tp_elem.parent.get_text().replace('TP:', '').strip() if tp_elem else 'N/A'
+                sl = sl_elem.parent.get_text().replace('SL:', '').strip() if sl_elem else 'N/A'
+                entry = p_elem.parent.get_text().replace('P:', '').strip() if p_elem else 'N/A'
+                
+                # Znajdź datę
+                date_elem = block.find('span', class_='block-signals__info_period')
+                date_str = datetime.now().strftime("%d.%m %H:%M")
+                if date_elem:
+                    date_text = date_elem.get_text(strip=True)
+                    # Format: "Today at 17:00 (UTC+1)"
+                    if 'Today' in date_text:
+                        time_match = re.search(r'(\d{2}:\d{2})', date_text)
+                        if time_match:
+                            date_str = datetime.now().strftime("%d.%m ") + time_match.group(1)
+                
+                signals.append({
+                    'p': instrument_text,
+                    'type': signal_type,
+                    'in': entry,
+                    'tp': tp,
+                    'sl': sl,
+                    'date': date_str,
+                    'src': 'FX.CO',
+                    'url': 'https://www.fx.co/pl/signals'
+                })
+            except Exception as e:
                 continue
                 
     except Exception as e:
-        st.warning(f"Błąd FX.CO: {str(e)[:100]}")
+        st.warning(f"⚠️ FX.CO: {str(e)[:100]}")
     
     return signals
 
@@ -218,26 +290,27 @@ def calculate_success_probability(signal):
     
     # Ratio TP/SL
     try:
-        tp_str = re.sub(r'[^\d.]', '', str(signal['tp']))
-        sl_str = re.sub(r'[^\d.]', '', str(signal['sl']))
-        entry_str = re.sub(r'[^\d.]', '', str(signal['in']))
-        
-        if tp_str and sl_str and entry_str:
-            tp = float(tp_str)
-            sl = float(sl_str)
-            entry = float(entry_str)
+        if signal['tp'] != 'N/A' and signal['sl'] != 'N/A' and signal['in'] != 'N/A':
+            tp_str = re.sub(r'[^\d.]', '', str(signal['tp']))
+            sl_str = re.sub(r'[^\d.]', '', str(signal['sl']))
+            entry_str = re.sub(r'[^\d.]', '', str(signal['in']))
             
-            reward = abs(tp - entry)
-            risk = abs(sl - entry)
-            
-            if risk > 0:
-                ratio = reward / risk
-                if ratio > 3:
-                    score += 20
-                elif ratio > 2:
-                    score += 15
-                elif ratio > 1.5:
-                    score += 10
+            if tp_str and sl_str and entry_str:
+                tp = float(tp_str)
+                sl = float(sl_str)
+                entry = float(entry_str)
+                
+                reward = abs(tp - entry)
+                risk = abs(sl - entry)
+                
+                if risk > 0:
+                    ratio = reward / risk
+                    if ratio > 3:
+                        score += 20
+                    elif ratio > 2:
+                        score += 15
+                    elif ratio > 1.5:
+                        score += 10
     except:
         pass
     
@@ -255,29 +328,32 @@ def generate_logic_explanation(signal, probability):
         signal_time = datetime.strptime(signal['date'], "%d.%m %H:%M")
         hours_old = (datetime.now() - signal_time).total_seconds() / 3600
         if hours_old < 1:
-            logic_parts.append("✅ Bardzo świeży sygnał (<1h)")
+            logic_parts.append("✅ Bardzo świeży (<1h)")
         elif hours_old < 6:
-            logic_parts.append("✅ Świeży sygnał (<6h)")
+            logic_parts.append("✅ Świeży (<6h)")
         else:
             logic_parts.append("⚠️ Starszy sygnał")
     except:
         logic_parts.append("⚠️ Brak daty")
     
     try:
-        tp_str = re.sub(r'[^\d.]', '', str(signal['tp']))
-        sl_str = re.sub(r'[^\d.]', '', str(signal['sl']))
-        entry_str = re.sub(r'[^\d.]', '', str(signal['in']))
-        
-        if tp_str and sl_str and entry_str:
-            tp = float(tp_str)
-            sl = float(sl_str)
-            entry = float(entry_str)
-            reward = abs(tp - entry)
-            risk = abs(sl - entry)
-            ratio = reward / risk if risk > 0 else 0
-            logic_parts.append(f"✅ R/R: {ratio:.2f}")
+        if signal['tp'] != 'N/A' and signal['sl'] != 'N/A' and signal['in'] != 'N/A':
+            tp_str = re.sub(r'[^\d.]', '', str(signal['tp']))
+            sl_str = re.sub(r'[^\d.]', '', str(signal['sl']))
+            entry_str = re.sub(r'[^\d.]', '', str(signal['in']))
+            
+            if tp_str and sl_str and entry_str:
+                tp = float(tp_str)
+                sl = float(sl_str)
+                entry = float(entry_str)
+                reward = abs(tp - entry)
+                risk = abs(sl - entry)
+                ratio = reward / risk if risk > 0 else 0
+                logic_parts.append(f"✅ R/R: {ratio:.2f}")
+        else:
+            logic_parts.append("⚠️ Niepełne dane R/R")
     except:
-        logic_parts.append("⚠️ Niepełne dane cenowe")
+        logic_parts.append("⚠️ Błąd kalkulacji R/R")
     
     logic_parts.append(f"📍 Źródło: {signal['src']}")
     
@@ -287,17 +363,11 @@ def fetch_all_signals():
     """Pobiera sygnały ze wszystkich źródeł"""
     all_signals = []
     
-    with st.spinner("Pobieram BestFreeSignal..."):
-        all_signals.extend(parse_bestfreesignal())
-    
-    with st.spinner("Pobieram DailyForex..."):
-        all_signals.extend(parse_dailyforex())
-    
-    with st.spinner("Pobieram ForeSignal..."):
-        all_signals.extend(parse_foresignal())
-    
-    with st.spinner("Pobieram FX.CO..."):
-        all_signals.extend(parse_fxco())
+    # Pobierz z każdego źródła
+    all_signals.extend(parse_bestfreesignal())
+    all_signals.extend(parse_dailyforex())
+    all_signals.extend(parse_foresignal())
+    all_signals.extend(parse_fxco())
     
     # Filtruj i dodaj metryki
     cutoff_date = datetime.now() - timedelta(days=2)
@@ -311,8 +381,8 @@ def fetch_all_signals():
                 signal['logic'] = generate_logic_explanation(signal, signal['szansa'])
                 processed.append(signal)
         except:
-            signal['szansa'] = 50
-            signal['logic'] = "⚠️ Brak pełnych danych"
+            signal['szansa'] = calculate_success_probability(signal)
+            signal['logic'] = generate_logic_explanation(signal, signal['szansa'])
             processed.append(signal)
     
     return processed
