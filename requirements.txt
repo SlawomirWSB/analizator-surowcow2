@@ -1,7 +1,4 @@
 streamlit
-yfinance
 pandas
 pandas_ta
-xtb-python
-plotly
-streamlit-autorefresh
+yfinance
