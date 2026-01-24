@@ -3,14 +3,13 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
-# 1. KONFIGURACJA STRONY
-st.set_page_config(page_title="Skaner Krypto LOGIC", layout="wide")
+# 1. KONFIGURACJA
+st.set_page_config(page_title="Skaner Krypto LOGIC v2", layout="wide")
 
 KRYPTO_LISTA = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
     "LINK-USD", "LTC-USD", "MATIC-USD", "DOGE-USD", "AVAX-USD", "BCH-USD",
-    "SHIB-USD", "ALGO-USD", "UNI-USD", "NEAR-USD", "ATOM-USD", "ICP-USD", 
-    "XLM-USD", "ETC-USD", "FIL-USD", "SAND-USD", "MANA-USD", "AAVE-USD"
+    "SHIB-USD", "ALGO-USD", "UNI-USD", "NEAR-USD", "ATOM-USD", "ICP-USD"
 ]
 
 interval_map = {
@@ -36,7 +35,6 @@ def wykonaj_analize(symbol, interwal_label):
 
     df.ta.rsi(length=14, append=True)
     df.ta.ema(length=20, append=True)
-    df.ta.ema(length=50, append=True)
     df.ta.atr(length=14, append=True)
 
     last = df.iloc[-1]
@@ -44,7 +42,7 @@ def wykonaj_analize(symbol, interwal_label):
     rsi = float(last['RSI_14'])
     atr = float(last['ATRr_14'])
     
-    # FILTR TRENDU WYŻSZEGO
+    # TREND WYŻSZY
     tf_wyzszy = "1d" if "m" in interwal or "h" in interwal else "1wk"
     df_big = pobierz_dane(symbol, tf_wyzszy, "2y")
     trend_wyzszy_ok = True
@@ -52,7 +50,7 @@ def wykonaj_analize(symbol, interwal_label):
         ema_big = ta.ema(df_big['Close'], length=20)
         trend_wyzszy_ok = float(df_big['Close'].iloc[-1]) > float(ema_big.iloc[-1])
 
-    # PUNKTACJA
+    # OBLICZANIE SZANS
     p_buy = 50
     if rsi < 35: p_buy += 15
     if cena > last['EMA_20']: p_buy += 10
@@ -65,66 +63,73 @@ def wykonaj_analize(symbol, interwal_label):
     if not trend_wyzszy_ok: p_sell += 25
     else: p_sell -= 20
 
+    # Logika głównego sygnału
     if p_buy >= 65:
-        final_sig, final_chance = "KUP", p_buy
+        final_sig, main_chance, oppo_chance = "KUP", p_buy, p_sell
     elif p_sell >= 65:
-        final_sig, final_chance = "SPRZEDAJ", p_sell
+        final_sig, main_chance, oppo_chance = "SPRZEDAJ", p_sell, p_buy
     else:
-        final_sig, final_chance = "CZEKAJ", max(p_buy, p_sell)
+        final_sig, main_chance, oppo_chance = "CZEKAJ", max(p_buy, p_sell), min(p_buy, p_sell)
 
     return {
         "Instrument": symbol.replace("-USD", ""),
         "Sygnał": final_sig,
-        "Szansa %": int(min(max(final_chance, 0), 100)),
+        "Szansa %": int(min(max(main_chance, 0), 100)),
+        "Opozycja %": int(min(max(oppo_chance, 0), 100)),
         "Trend Wyższy": "WZROST" if trend_wyzszy_ok else "SPADEK",
         "Cena": round(cena, 4),
         "RSI": round(rsi, 1),
-        "Szansa KUP": int(p_buy),
-        "Szansa SELL": int(p_sell),
-        "ATR": round(atr, 4)
+        "ATR_HIDDEN": atr # Ukryte do obliczeń kalkulatora
     }
 
-# --- UI ---
-st.title("⚖️ Logiczny Skaner Kierunkowy")
+# --- INTERFEJS ---
+st.title("⚖️ Profesjonalny Skaner Kierunkowy")
 
-wybrany_interwal = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
+interwal_sel = st.select_slider("Wybierz interwał:", options=list(interval_map.keys()), value="1 godz")
 
-if st.button("🚀 ANALIZUJ", use_container_width=True):
+if st.button("🚀 ANALIZUJ RYNEK", use_container_width=True):
     wyniki = []
-    with st.spinner('Analizowanie wykresów...'):
+    with st.spinner('Analizowanie trendów...'):
         for s in KRYPTO_LISTA:
-            res = wykonaj_analize(s, wybrany_interwal)
+            res = wykonaj_analize(s, interwal_sel)
             if res: wyniki.append(res)
     
     if wyniki:
         df_final = pd.DataFrame(wyniki).sort_values(by="Szansa %", ascending=False)
         
-        # POPRAWKA CZYTELNOŚCI - Kolory z białym tekstem
-        def apply_styles(row):
+        # Stylizacja dla czytelności (biały tekst na kolorach)
+        def style_logic(row):
             if row['Sygnał'] == 'KUP':
                 return ['background-color: #28a745; color: white; font-weight: bold'] * len(row)
             if row['Sygnał'] == 'SPRZEDAJ':
                 return ['background-color: #dc3545; color: white; font-weight: bold'] * len(row)
-            return [''] * len(row)
+            return ['color: white'] * len(row)
 
-        st.dataframe(df_final.style.apply(apply_styles, axis=1), use_container_width=True, height=600)
+        # Wyświetlamy tylko potrzebne kolumny
+        cols_to_show = ["Instrument", "Sygnał", "Szansa %", "Opozycja %", "Trend Wyższy", "Cena", "RSI"]
+        st.dataframe(df_final[cols_to_show].style.apply(style_logic, axis=1), use_container_width=True, height=600)
         
         st.divider()
-        st.subheader("📋 Kalkulator Zleceń")
-        sel = st.selectbox("Wybierz krypto:", df_final['Instrument'])
-        kierunek = st.radio("Kierunek:", ["KUPNO (Long)", "SPRZEDAŻ (Short)"])
+        st.subheader("📋 Kalkulator Zleceń (TP/SL)")
         
-        d = df_final[df_final['Instrument'] == sel].iloc[0]
-        cena, atr = d['Cena'], d['ATR']
+        col_a, col_b = st.columns(2)
+        with col_a:
+            inst = st.selectbox("Wybierz instrument z tabeli:", df_final['Instrument'])
+        with col_b:
+            kier = st.radio("Wybierz planowany kierunek:", ["KUPNO", "SPRZEDAŻ"])
         
-        c1, c2, c3 = st.columns(3)
-        if kierunek == "KUPNO (Long)":
-            c1.metric("Wejście", cena)
-            c2.metric("Take Profit", round(cena + (atr * 3), 4))
-            c3.metric("Stop Loss", round(cena - (atr * 1.5), 4))
+        # Dane do kalkulatora
+        d = df_final[df_final['Instrument'] == inst].iloc[0]
+        c, a = d['Cena'], d['ATR_HIDDEN']
+        
+        res1, res2, res3 = st.columns(3)
+        if kier == "KUPNO":
+            res1.metric("Wejście", c)
+            res2.metric("Take Profit (TP)", round(c + (a * 3), 4))
+            res3.metric("Stop Loss (SL)", round(c - (a * 1.5), 4))
         else:
-            c1.metric("Wejście", cena)
-            c2.metric("Take Profit", round(cena - (atr * 3), 4))
-            c3.metric("Stop Loss", round(cena + (atr * 1.5), 4))
+            res1.metric("Wejście", c)
+            res2.metric("Take Profit (TP)", round(c - (a * 3), 4))
+            res3.metric("Stop Loss (SL)", round(c + (a * 1.5), 4))
     else:
         st.error("Brak danych.")
