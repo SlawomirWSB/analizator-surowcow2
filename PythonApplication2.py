@@ -3,8 +3,7 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
-# 1. KONFIGURACJA STRONY
-st.set_page_config(page_title="Skaner Krypto PRO + Opozycja", layout="wide")
+st.set_page_config(page_title="Skaner Krypto LOGIC", layout="wide")
 
 KRYPTO_LISTA = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
@@ -34,19 +33,17 @@ def wykonaj_analize(symbol, interwal_label):
     df = pobierz_dane(symbol, interwal, okres_map.get(interwal, "2y"))
     if df.empty or len(df) < 50: return None
 
-    # OBLICZENIA TECHNICZNE
     df.ta.rsi(length=14, append=True)
     df.ta.ema(length=20, append=True)
     df.ta.ema(length=50, append=True)
     df.ta.atr(length=14, append=True)
-    df['Vol_Avg'] = df['Volume'].rolling(window=20).mean()
 
     last = df.iloc[-1]
     cena = float(last['Close'])
     rsi = float(last['RSI_14'])
     atr = float(last['ATRr_14'])
     
-    # FILTR TRENDU WYŻSZEGO (MTF)
+    # FILTR TRENDU WYŻSZEGO
     tf_wyzszy = "1d" if "m" in interwal or "h" in interwal else "1wk"
     df_big = pobierz_dane(symbol, tf_wyzszy, "2y")
     trend_wyzszy_ok = True
@@ -54,53 +51,52 @@ def wykonaj_analize(symbol, interwal_label):
         ema_big = ta.ema(df_big['Close'], length=20)
         trend_wyzszy_ok = float(df_big['Close'].iloc[-1]) > float(ema_big.iloc[-1])
 
-    # SCORING KUP (Twoje obecne zasady)
-    score_buy = 50
-    if rsi < 30: score_buy += 15
-    if rsi > 70: score_buy -= 20
-    if cena > last['EMA_20'] > last['EMA_50']: score_buy += 15
-    if last['Volume'] > last['Vol_Avg']: score_buy += 5
-    if not trend_wyzszy_ok: score_buy -= 30 
-    score_buy = int(min(max(score_buy, 0), 100))
+    # --- NOWA LOGIKA SYGNAŁÓW (NIEZALEŻNA) ---
+    # Punkty dla KUPNA
+    p_buy = 50
+    if rsi < 35: p_buy += 15
+    if cena > last['EMA_20']: p_buy += 10
+    if trend_wyzszy_ok: p_buy += 25
+    else: p_buy -= 20
 
-    # SCORING OPOZYCJA (SPRZEDAJ)
-    score_sell = 50
-    if rsi > 70: score_sell += 20
-    if rsi < 30: score_sell -= 15
-    if cena < last['EMA_20'] < last['EMA_50']: score_sell += 15
-    if last['Volume'] > last['Vol_Avg']: score_sell += 5
-    if trend_wyzszy_ok: score_sell -= 20 # Kara dla sprzedaży, gdy trend dzienny rośnie
-    score_sell = int(min(max(score_sell, 0), 100))
+    # Punkty dla SPRZEDAŻY
+    p_sell = 50
+    if rsi > 65: p_sell += 15
+    if cena < last['EMA_20']: p_sell += 10
+    if not trend_wyzszy_ok: p_sell += 25
+    else: p_sell -= 20
 
-    signal = "KUP" if score_buy >= 65 else "SPRZEDAJ" if score_buy <= 35 else "CZEKAJ"
-    
-    # Parametry dla KUP (wymuszone dla opozycji)
-    tp_buy = cena + (atr * 3)
-    sl_buy = cena - (atr * 1.5)
-    zysk_buy = ((tp_buy - cena) / cena) * 100
+    # Ustalenie dominującego sygnału
+    if p_buy >= 65:
+        final_sig = "KUP"
+        final_chance = p_buy
+    elif p_sell >= 65:
+        final_sig = "SPRZEDAJ"
+        final_chance = p_sell
+    else:
+        final_sig = "CZEKAJ"
+        final_chance = max(p_buy, p_sell)
 
     return {
         "Instrument": symbol.replace("-USD", ""),
-        "Sygnał": signal,
-        "Szansa %": score_buy,
-        "Opozycja (Sprzedaż) %": score_sell,
+        "Sygnał": final_sig,
+        "Szansa %": int(min(max(final_chance, 0), 100)),
         "Trend Wyższy": "WZROST" if trend_wyzszy_ok else "SPADEK",
         "Cena": round(cena, 4),
-        "Zysk do TP (KUP)": f"{round(zysk_buy, 2)}%",
         "RSI": round(rsi, 1),
-        "Wejście KUP": round(cena, 4),
-        "TP KUP": round(tp_buy, 4),
-        "SL KUP": round(sl_buy, 4)
+        "Szansa KUP": int(p_buy),
+        "Szansa SELL": int(p_sell),
+        "ATR (Zmienność)": round(atr, 4)
     }
 
 # --- UI ---
-st.title("🛡️ Skaner Krypto PRO + Analiza Opozycji")
+st.title("⚖️ Logiczny Skaner Kierunkowy")
 
-wybrany_interwal = st.select_slider("Zmień interwał analizy:", options=list(interval_map.keys()), value="1 godz")
+wybrany_interwal = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
 
-if st.button("🚀 URUCHOM ANALIZĘ", use_container_width=True):
+if st.button("🚀 ANALIZUJ", use_container_width=True):
     wyniki = []
-    with st.spinner('Przeliczanie szans i opozycji...'):
+    with st.spinner('Synchronizacja danych...'):
         for s in KRYPTO_LISTA:
             res = wykonaj_analize(s, wybrany_interwal)
             if res: wyniki.append(res)
@@ -108,27 +104,27 @@ if st.button("🚀 URUCHOM ANALIZĘ", use_container_width=True):
     if wyniki:
         df_final = pd.DataFrame(wyniki).sort_values(by="Szansa %", ascending=False)
         
-        # Stylizacja
-        def style_rows(row):
-            if row['Sygnał'] == 'KUP' and row['Trend Wyższy'] == 'WZROST':
-                return ['background-color: #004d00; color: white'] * len(row)
-            if row['Opozycja (Sprzedaż) %'] > 60:
-                return ['color: #ffb3b3'] * len(row) # Jasny czerwony dla silnej opozycji
+        def color_logic(row):
+            if row['Sygnał'] == 'KUP': return ['background-color: #004d00'] * len(row)
+            if row['Sygnał'] == 'SPRZEDAJ': return ['background-color: #4d0000'] * len(row)
             return [''] * len(row)
 
-        st.dataframe(df_final.style.apply(style_rows, axis=1), use_container_width=True, height=800)
+        st.dataframe(df_final.style.apply(color_logic, axis=1), use_container_width=True)
         
-        # Sekcja szczegółów (po kliknięciu/wyborze)
         st.divider()
-        st.subheader("💡 Kalkulator Wejścia (Opozycja/Kupno)")
-        wybrany_inst = st.selectbox("Wybierz instrument, aby zobaczyć parametry KUP (nawet jeśli teraz spada):", df_final['Instrument'])
+        st.subheader("📋 Kalkulator Zleceń (Wybierz kierunek)")
+        sel = st.selectbox("Wybierz krypto:", df_final['Instrument'])
+        kierunek = st.radio("Wybierz kierunek zlecenia:", ["KUPNO (Long)", "SPRZEDAŻ (Short)"])
         
-        row_sel = df_final[df_final['Instrument'] == wybrany_inst].iloc[0]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Cena Wejścia", row_sel['Wejście KUP'])
-        c2.metric("Take Profit", row_sel['TP KUP'], f"+{row_sel['Zysk do TP (KUP)']}")
-        c3.metric("Stop Loss", row_sel['SL KUP'], delta_color="inverse")
-        c4.write(f"**Aktualna Szansa KUP:** {row_sel['Szansa %']}%")
+        d = df_final[df_final['Instrument'] == sel].iloc[0]
+        cena, atr = d['Cena'], d['ATR (Zmienność)']
         
-    else:
-        st.error("Błąd danych.")
+        c1, c2, c3 = st.columns(3)
+        if kierunek == "KUPNO (Long)":
+            c1.metric("Wejście", cena)
+            c2.metric("Take Profit", round(cena + (atr * 3), 4))
+            c3.metric("Stop Loss", round(cena - (atr * 1.5), 4))
+        else:
+            c1.metric("Wejście", cena)
+            c2.metric("Take Profit", round(cena - (atr * 3), 4))
+            c3.metric("Stop Loss", round(cena + (atr * 1.5), 4))
