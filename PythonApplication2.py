@@ -3,6 +3,7 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
+# 1. KONFIGURACJA STRONY
 st.set_page_config(page_title="Skaner Krypto LOGIC", layout="wide")
 
 KRYPTO_LISTA = [
@@ -51,31 +52,25 @@ def wykonaj_analize(symbol, interwal_label):
         ema_big = ta.ema(df_big['Close'], length=20)
         trend_wyzszy_ok = float(df_big['Close'].iloc[-1]) > float(ema_big.iloc[-1])
 
-    # --- NOWA LOGIKA SYGNAŁÓW (NIEZALEŻNA) ---
-    # Punkty dla KUPNA
+    # PUNKTACJA
     p_buy = 50
     if rsi < 35: p_buy += 15
     if cena > last['EMA_20']: p_buy += 10
     if trend_wyzszy_ok: p_buy += 25
     else: p_buy -= 20
 
-    # Punkty dla SPRZEDAŻY
     p_sell = 50
     if rsi > 65: p_sell += 15
     if cena < last['EMA_20']: p_sell += 10
     if not trend_wyzszy_ok: p_sell += 25
     else: p_sell -= 20
 
-    # Ustalenie dominującego sygnału
     if p_buy >= 65:
-        final_sig = "KUP"
-        final_chance = p_buy
+        final_sig, final_chance = "KUP", p_buy
     elif p_sell >= 65:
-        final_sig = "SPRZEDAJ"
-        final_chance = p_sell
+        final_sig, final_chance = "SPRZEDAJ", p_sell
     else:
-        final_sig = "CZEKAJ"
-        final_chance = max(p_buy, p_sell)
+        final_sig, final_chance = "CZEKAJ", max(p_buy, p_sell)
 
     return {
         "Instrument": symbol.replace("-USD", ""),
@@ -86,7 +81,7 @@ def wykonaj_analize(symbol, interwal_label):
         "RSI": round(rsi, 1),
         "Szansa KUP": int(p_buy),
         "Szansa SELL": int(p_sell),
-        "ATR (Zmienność)": round(atr, 4)
+        "ATR": round(atr, 4)
     }
 
 # --- UI ---
@@ -96,7 +91,7 @@ wybrany_interwal = st.select_slider("Interwał:", options=list(interval_map.keys
 
 if st.button("🚀 ANALIZUJ", use_container_width=True):
     wyniki = []
-    with st.spinner('Synchronizacja danych...'):
+    with st.spinner('Analizowanie wykresów...'):
         for s in KRYPTO_LISTA:
             res = wykonaj_analize(s, wybrany_interwal)
             if res: wyniki.append(res)
@@ -104,20 +99,23 @@ if st.button("🚀 ANALIZUJ", use_container_width=True):
     if wyniki:
         df_final = pd.DataFrame(wyniki).sort_values(by="Szansa %", ascending=False)
         
-        def color_logic(row):
-            if row['Sygnał'] == 'KUP': return ['background-color: #004d00'] * len(row)
-            if row['Sygnał'] == 'SPRZEDAJ': return ['background-color: #4d0000'] * len(row)
+        # POPRAWKA CZYTELNOŚCI - Kolory z białym tekstem
+        def apply_styles(row):
+            if row['Sygnał'] == 'KUP':
+                return ['background-color: #28a745; color: white; font-weight: bold'] * len(row)
+            if row['Sygnał'] == 'SPRZEDAJ':
+                return ['background-color: #dc3545; color: white; font-weight: bold'] * len(row)
             return [''] * len(row)
 
-        st.dataframe(df_final.style.apply(color_logic, axis=1), use_container_width=True)
+        st.dataframe(df_final.style.apply(apply_styles, axis=1), use_container_width=True, height=600)
         
         st.divider()
-        st.subheader("📋 Kalkulator Zleceń (Wybierz kierunek)")
+        st.subheader("📋 Kalkulator Zleceń")
         sel = st.selectbox("Wybierz krypto:", df_final['Instrument'])
-        kierunek = st.radio("Wybierz kierunek zlecenia:", ["KUPNO (Long)", "SPRZEDAŻ (Short)"])
+        kierunek = st.radio("Kierunek:", ["KUPNO (Long)", "SPRZEDAŻ (Short)"])
         
         d = df_final[df_final['Instrument'] == sel].iloc[0]
-        cena, atr = d['Cena'], d['ATR (Zmienność)']
+        cena, atr = d['Cena'], d['ATR']
         
         c1, c2, c3 = st.columns(3)
         if kierunek == "KUPNO (Long)":
@@ -128,3 +126,5 @@ if st.button("🚀 ANALIZUJ", use_container_width=True):
             c1.metric("Wejście", cena)
             c2.metric("Take Profit", round(cena - (atr * 3), 4))
             c3.metric("Stop Loss", round(cena + (atr * 1.5), 4))
+    else:
+        st.error("Brak danych.")
