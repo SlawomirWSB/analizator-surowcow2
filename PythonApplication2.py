@@ -3,9 +3,10 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
+# 1. KONFIGURACJA STRONY
 st.set_page_config(page_title="Skaner Krypto PRO", layout="wide")
 
-# Rozszerzona lista instrumentów (zgodna z XTB)
+# Lista instrumentów XTB
 KRYPTO_LISTA = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
     "LINK-USD", "LTC-USD", "MATIC-USD", "DOGE-USD", "AVAX-USD", "BCH-USD",
@@ -13,7 +14,6 @@ KRYPTO_LISTA = [
     "XLM-USD", "ETC-USD", "FIL-USD", "SAND-USD", "MANA-USD", "AAVE-USD"
 ]
 
-# Mapowanie interwałów z dodanym miesiącem
 interval_map = {
     "1 min": "1m", "5 min": "5m", "15 min": "15m", "30 min": "30m",
     "1 godz": "1h", "4 godz": "1h", "1 dzień": "1d", "1 tydz": "1wk", "1 mies": "1mo"
@@ -29,28 +29,26 @@ def pobierz_dane(symbol, interwal, okres):
         return pd.DataFrame()
 
 def wykonaj_analize(symbol, interwal_label):
-    # 1. Pobieranie danych dla wybranego interwału
     interwal = interval_map[interwal_label]
     okres_map = {"1m": "1d", "5m": "1d", "15m": "1d", "30m": "1d", "1h": "1mo", "1d": "2y", "1wk": "max", "1mo": "max"}
     
-    df = pobierz_dane(symbol, interwal, okres_map.get(interwal, "1y"))
+    df = pobierz_dane(symbol, interwal, okres_map.get(interwal, "2y"))
     
     if df.empty or len(df) < 50:
         return None
 
-    # --- OBLICZENIA TECHNICZNE (GŁÓWNY TF) ---
+    # OBLICZENIA TECHNICZNE
     df.ta.rsi(length=14, append=True)
     df.ta.ema(length=20, append=True)
     df.ta.ema(length=50, append=True)
     df.ta.atr(length=14, append=True)
-    df.ta.bbands(length=20, append=True)
     df['Vol_Avg'] = df['Volume'].rolling(window=20).mean()
 
     last = df.iloc[-1]
     cena = float(last['Close'])
+    rsi = float(last['RSI_14'])
     
-    # 2. FILTR TRENDU WYŻSZEGO RZĘDU (MTF)
-    # Jeśli analizujemy < 1d, sprawdź trend na 1d. Jeśli analizujemy 1d, sprawdź 1wk.
+    # FILTR TRENDU WYŻSZEGO (MTF)
     tf_wyzszy = "1d" if "m" in interwal or "h" in interwal else "1wk"
     df_big = pobierz_dane(symbol, tf_wyzszy, "2y")
     
@@ -59,37 +57,37 @@ def wykonaj_analize(symbol, interwal_label):
         ema_big = ta.ema(df_big['Close'], length=20)
         trend_wyzszy_ok = float(df_big['Close'].iloc[-1]) > float(ema_big.iloc[-1])
 
-    # --- RYGORYSTYCZNY SCORING ---
+    # SCORING (Rygorystyczny)
     score = 50
-    rsi = float(last['RSI_14'])
-    
     if rsi < 30: score += 15
     if rsi > 70: score -= 20
     if cena > last['EMA_20'] > last['EMA_50']: score += 15
     if last['Volume'] > last['Vol_Avg']: score += 5
-    if not trend_wyzszy_ok: score -= 30 # Kara za granie przeciw trendowi wyższemu
+    if not trend_wyzszy_ok: score -= 30 
 
     # Werdykt
     signal = "KUP" if score >= 65 else "SPRZEDAJ" if score <= 35 else "CZEKAJ"
     atr = float(last['ATRr_14'])
+    tp = cena + (atr * 3)
+    sl = cena - (atr * 1.5)
+    zysk_procent = ((tp - cena) / cena) * 100
 
     return {
         "Instrument": symbol.replace("-USD", ""),
         "Sygnał": signal,
-        "Cena": round(cena, 4),
         "Szansa %": int(min(max(score, 0), 100)),
         "Trend Wyższy": "WZROST" if trend_wyzszy_ok else "SPADEK",
-        "RSI": round(rsi, 2),
+        "Cena": round(cena, 4),
+        "Zysk do TP": f"{round(zysk_procent, 2)}%",
+        "RSI": round(rsi, 1),
         "Wejście": round(cena, 4),
-        "TP": round(cena + (atr * 3), 4),
-        "SL": round(cena - (atr * 1.5), 4)
+        "TP": round(tp, 4),
+        "SL": round(sl, 4)
     }
 
 # --- UI ---
-st.title("🛡️ Rygorystyczny Analizator Multitimeframe")
-st.info("System analizuje wybrany interwał oraz sprawdza trend na wyższym TF (np. 1H -> 1D).")
+st.title("🛡️ Skaner Kryptowalut (Rygorystyczny MTF)")
 
-# Rozszerzony suwak
 wybrany_interwal = st.select_slider(
     "Zmień interwał analizy:", 
     options=list(interval_map.keys()), 
@@ -107,10 +105,14 @@ if st.button("🚀 URUCHOM ANALIZĘ", use_container_width=True):
     if wyniki:
         df_final = pd.DataFrame(wyniki).sort_values(by="Szansa %", ascending=False)
         
-        def color_signal(val):
-            color = 'green' if val == 'KUP' else 'red' if val == 'SPRZEDAJ' else 'gray'
-            return f'color: {color}; font-weight: bold'
+        # Funkcja kolorowania wierszy
+        def highlight_ready(row):
+            if row['Sygnał'] == 'KUP' and row['Trend Wyższy'] == 'WZROST':
+                return ['background-color: #004d00'] * len(row) # Ciemny zielony
+            elif row['Sygnał'] == 'SPRZEDAJ':
+                return ['color: #ff4d4d'] * len(row) # Czerwony tekst dla sprzedaży
+            return [''] * len(row)
 
-        st.dataframe(df_final.style.applymap(color_signal, subset=['Sygnał']), use_container_width=True, height=800)
+        st.dataframe(df_final.style.apply(highlight_ready, axis=1), use_container_width=True, height=800)
     else:
-        st.error("Brak danych dla tego interwału. Yahoo Finance może mieć przerwy w danych minutowych.")
+        st.error("Błąd pobierania danych.")
