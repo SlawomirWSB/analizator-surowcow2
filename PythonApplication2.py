@@ -4,7 +4,7 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO - Ekspert V2", layout="wide")
+st.set_page_config(page_title="Skaner PRO - Ekspert V3", layout="wide")
 
 KRYPTO_XTB = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
@@ -17,21 +17,36 @@ interval_map = {
     "4 godz": "4h", "1 dzień": "1d", "1 tydz": "1wk", "1 mies": "1mo"
 }
 
+def pobierz_bezpieczny_okres(interwal):
+    """Dobiera optymalny period, aby nie przeciążyć API i mieć dane do wskaźników."""
+    mapa_okresow = {
+        "5m": "1d", "15m": "5d", "30m": "5d", "1h": "30d", 
+        "4h": "60d", "1d": "365d", "1wk": "730d", "1mo": "1825d"
+    }
+    return mapa_okresow.get(interwal, "60d")
+
 def wykonaj_skan(tryb, interwal_label):
     wyniki = []
     interwal = interval_map[interwal_label]
-    # Określenie okresu pobierania danych
-    if interwal in ["5m", "15m", "30m"]: period = "7d"
-    elif interwal in ["1h", "4h"]: period = "60d"
-    else: period = "max"
+    okres = pobierz_bezpieczny_okres(interwal)
     
-    for symbol in KRYPTO_XTB:
+    # Pasek postępu
+    progress_bar = st.progress(0)
+    total = len(KRYPTO_XTB)
+    
+    for i, symbol in enumerate(KRYPTO_XTB):
         try:
-            df = yf.download(symbol, period=period, interval=interwal, progress=False)
-            if df.empty or len(df) < 50: continue
-            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+            # Pobieranie danych
+            df = yf.download(symbol, period=okres, interval=interwal, progress=False, timeout=10)
+            
+            if df.empty or len(df) < 55: # Potrzebujemy min. 50 świec dla EMA50
+                continue
+            
+            # Naprawa MultiIndex w kolumnach
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
 
-            # Wskaźniki
+            # Obliczanie wskaźników
             df.ta.rsi(length=14, append=True)
             df.ta.ema(length=20, append=True)
             df.ta.ema(length=50, append=True)
@@ -43,22 +58,25 @@ def wykonaj_skan(tryb, interwal_label):
             
             l = df.iloc[-1]
             prev = df.iloc[-2]
+            
             cena = float(l['Close'])
             rsi = float(l['RSI_14'])
             ema20 = float(l['EMA_20'])
-            vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] != 0 else 1
+            vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1
 
-            # Logika Sygnału i Siły
+            # Logika Sygnału
             sig = "KUP" if cena > ema20 else "SPRZEDAJ"
+            
+            # Scoring
             score = 40
             if (sig == "KUP" and l['MACD_12_26_9'] > l['MACDs_12_26_9']) or (sig == "SPRZEDAJ" and l['MACD_12_26_9'] < l['MACDs_12_26_9']): score += 20
             if vol_ratio > 1.1: score += 15
             if (sig == "KUP" and rsi < 50) or (sig == "SPRZEDAJ" and rsi > 50): score += 15
             if l['ADX_14'] > 25: score += 10
 
-            # Dywergencja i BB
+            # Dywergencja i Bollinger
             dyw = "BRAK"
-            if sig == "KUP" and cena > prev['Close'] and rsi < prev['RSI_14']: dyw = "NIEDŹWIEDZIA"
+            if sig == "KUP" and cena > prev['Close'] and rsi < prev['RSI_14']: dyw = "NIEDŹW."
             if sig == "SPRZEDAJ" and cena < prev['Close'] and rsi > prev['RSI_14']: dyw = "BYCZA"
 
             bb_stat = "Wewnątrz"
@@ -78,41 +96,38 @@ def wykonaj_skan(tryb, interwal_label):
                 "Wolumen %": round(vol_ratio * 100),
                 "RSI": round(rsi, 1),
                 "BB Status": bb_stat,
-                "Dywergencja": dyw
+                "Dyw.": dyw
             })
-        except: continue
+        except Exception as e:
+            continue
+        finally:
+            progress_bar.progress((i + 1) / total)
+            
+    progress_bar.empty()
     return wyniki
 
 # --- STYLIZACJA ---
 def color_table(df):
     def apply_styles(row):
-        # Neutralny start
         formats = [''] * len(row)
         sig = row['Sygnał']
         
-        # 1. Sygnał (Tło)
+        # Kolumny: 0:Inst, 1:Syg, 2:Siła, 3:Wejscie, 4:TP, 5:SL, 6:Vol, 7:RSI, 8:BB, 9:Dyw
         formats[1] = 'background-color: #1e4620; color: white' if sig == 'KUP' else 'background-color: #5f1a1d; color: white'
-        
-        # 2. Siła %
         formats[2] = 'color: #00ff00; font-weight: bold' if row['Siła %'] > 70 else 'color: #ff4b4b'
-        
-        # 3. Wolumen
         formats[6] = 'color: #00ff00' if row['Wolumen %'] > 100 else 'color: #ff4b4b'
         
-        # 4. RSI
         if sig == "KUP":
             formats[7] = 'color: #00ff00' if row['RSI'] < 50 else 'color: #ff4b4b'
         else:
             formats[7] = 'color: #00ff00' if row['RSI'] > 50 else 'color: #ff4b4b'
             
         return formats
-
     return df.style.apply(apply_styles, axis=1)
 
 # --- UI ---
-st.title("⚖️ Skaner PRO - System Ekspercki V2")
+st.title("⚖️ Skaner PRO - System Ekspercki V3")
 
-# Suwak interwału
 wybrany_interwal = st.select_slider("Wybierz interwał:", options=list(interval_map.keys()), value="4 godz")
 
 col1, col2 = st.columns(2)
@@ -121,15 +136,12 @@ with col1:
 with col2:
     btn_s = st.button("💎 ANALIZA - SUGEROWANA (LIMIT)", use_container_width=True)
 
-# Obsługa przycisków
 if btn_m or btn_s:
     tryb = "rynkowy" if btn_m else "sugerowany"
-    with st.spinner("Pobieranie i analiza danych..."):
-        dane = wykonaj_skan(tryb, wybrany_interwal)
-        
+    dane = wykonaj_skan(tryb, wybrany_interwal)
+    
     if dane:
         df_final = pd.DataFrame(dane).sort_values(by="Siła %", ascending=False)
         st.dataframe(color_table(df_final), use_container_width=True)
-        st.success(f"Zakończono skanowanie dla interwału: {wybrany_interwal}")
     else:
-        st.warning("Brak danych dla wybranego interwału. Spróbuj zwiększyć interwał (np. na 1 godz).")
+        st.error("Błąd pobierania danych. Spróbuj zmienić interwał lub odśwież stronę (F5).")
