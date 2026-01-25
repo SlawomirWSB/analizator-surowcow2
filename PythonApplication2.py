@@ -4,7 +4,7 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO - Final", layout="wide")
+st.set_page_config(page_title="Skaner PRO - Ultra Stabilny", layout="wide")
 
 KRYPTO_XTB = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
@@ -17,36 +17,35 @@ interval_map = {
     "4 godz": "4h", "1 dzień": "1d", "1 tydz": "1wk", "1 mies": "1mo"
 }
 
-# Funkcja z cache, aby nie blokować IP
-@st.cache_data(ttl=120) 
-def pobierz_dane_zbiorcze(interwal_label):
+@st.cache_data(ttl=300) # Cache na 5 minut, aby oszczędzać limity Yahoo
+def pobierz_dane_bezpiecznie(interwal_label):
     interwal = interval_map[interwal_label]
-    # Optymalny dobór okresu
-    if interwal in ["5m", "15m", "30m"]: okres = "5d"
+    # Kluczowe: Dobór okresu tak, by zawsze starczyło na EMA/BB
+    if interwal in ["5m", "15m", "30m"]: okres = "7d"
     elif interwal in ["1h", "4h"]: okres = "60d"
-    else: okres = "1000d"
+    elif interwal == "1d": okres = "1y"
+    else: okres = "max"
 
     try:
-        # Pobieranie wszystkich krypto naraz - najstabilniejsza metoda
-        data = yf.download(KRYPTO_XTB, period=okres, interval=interwal, group_by='ticker', progress=False, timeout=20)
+        data = yf.download(KRYPTO_XTB, period=okres, interval=interwal, group_by='ticker', progress=False, timeout=30)
         return data
     except:
         return None
 
-def przetworz_wyniki(data, tryb):
-    if data is None: return None
+def analizuj(data, tryb):
+    if data is None: return []
     wyniki = []
     
     for symbol in KRYPTO_XTB:
         try:
             df = data[symbol].dropna()
-            if len(df) < 30: continue
+            if len(df) < 35: continue
 
-            # Obliczenia
+            # Technika
             df.ta.rsi(length=14, append=True)
             df.ta.ema(length=20, append=True)
-            df.ta.adx(length=14, append=True)
             df.ta.bbands(length=20, append=True)
+            df.ta.adx(length=14, append=True)
             df.ta.atr(length=14, append=True)
             df['Vol_Avg'] = df['Volume'].rolling(window=20).mean()
             
@@ -59,78 +58,76 @@ def przetworz_wyniki(data, tryb):
 
             sig = "KUP" if cena > ema20 else "SPRZEDAJ"
             
-            # Punktacja SIŁY %
-            score = 40
+            # Punktacja Siły
+            score = 45
             if (sig == "KUP" and rsi < 50) or (sig == "SPRZEDAJ" and rsi > 50): score += 20
-            if vol_ratio > 1.1: score += 20
+            if vol_ratio > 1.1: score += 15
             if l['ADX_14'] > 25: score += 15
 
-            # Dywergencja i BB
-            bb_stat = "Wewnątrz"
-            if cena > l['BBU_20_2.0']: bb_stat = "Wybicie Górą"
-            elif cena < l['BBL_20_2.0']: bb_stat = "Wybicie Dołem"
+            # Wstęgi & Dywergencja
+            bb_s = "Wewnątrz"
+            if cena > l['BBU_20_2.0']: bb_s = "Wybicie Górą"
+            elif cena < l['BBL_20_2.0']: bb_s = "Wybicie Dołem"
 
             dyw = "BRAK"
             if sig == "KUP" and cena > prev['Close'] and rsi < prev['RSI_14']: dyw = "NIEDŹW."
-            if sig == "SPRZEDAJ" and cena < prev['Close'] and rsi > prev['RSI_14']: dyw = "BYCZA"
+            elif sig == "SPRZEDAJ" and cena < prev['Close'] and rsi > prev['RSI_14']: dyw = "BYCZA"
 
-            wejscie = cena if tryb == "rynkowy" else ema20
+            wej = cena if tryb == "rynkowy" else ema20
             atr = l['ATRr_14']
 
             wyniki.append({
                 "Instrument": symbol.replace("-USD", ""),
                 "Sygnał": sig,
                 "Siła %": min(score, 98),
-                "Cena Wejścia": round(wejscie, 4),
+                "Cena Wejścia": round(wej, 4),
                 "Wolumen %": round(vol_ratio * 100),
                 "RSI": round(rsi, 1),
                 "ADX": round(l['ADX_14'], 1),
-                "BB Status": bb_stat,
+                "BB Status": bb_s,
                 "Dyw.": dyw,
-                "TP": round(wejscie + (atr*2.5) if sig=="KUP" else wejscie - (atr*2.5), 4),
-                "SL": round(wejscie - (atr*1.5) if sig=="KUP" else wejscie + (atr*1.5), 4)
+                "TP": round(wej + (atr*2.5) if sig=="KUP" else wej - (atr*2.5), 4),
+                "SL": round(wej - (atr*1.5) if sig=="KUP" else wej + (atr*1.5), 4)
             })
         except: continue
     return wyniki
 
-def stylizuj_tabele(df):
-    def row_style(row):
+def stylizuj(df):
+    def apply_row(row):
         s = [''] * len(row)
         sig = row['Sygnał']
-        # Sygnał tło
+        # Kolorowanie Sygnału (Tło)
         s[1] = 'background-color: #1e4620; color: white' if sig == 'KUP' else 'background-color: #5f1a1d; color: white'
-        # Siła %
+        # Kolorowanie Siły (Tekst)
         s[2] = 'color: #00ff00; font-weight: bold' if row['Siła %'] > 70 else 'color: #ff4b4b'
-        # Wolumen
+        # Wolumen & RSI (Warunkowe kolory tekstów)
         s[4] = 'color: #00ff00' if row['Wolumen %'] > 100 else 'color: #ff4b4b'
-        # RSI
         if sig == "KUP":
             s[5] = 'color: #00ff00' if row['RSI'] < 50 else 'color: #ff4b4b'
         else:
             s[5] = 'color: #00ff00' if row['RSI'] > 50 else 'color: #ff4b4b'
         return s
-    return df.style.apply(row_style, axis=1)
+    return df.style.apply(apply_row, axis=1)
 
 # --- UI ---
-st.title("⚖️ Skaner PRO - Analiza Ekspercka Final")
+st.title("⚖️ Skaner PRO - Wersja Precyzyjna")
 
-wybrany_int = st.select_slider("Wybierz interwał (5m - 1M):", options=list(interval_map.keys()), value="4 godz")
+int_sel = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
 
-c1, c2 = st.columns(2)
-with c1: btn_m = st.button("🚀 ANALIZA RYNKOWA", use_container_width=True)
-with c2: btn_s = st.button("💎 ANALIZA SUGEROWANA (LIMIT)", use_container_width=True)
+col1, col2 = st.columns(2)
+with col1: btn_m = st.button("🚀 ANALIZA RYNKOWA", use_container_width=True)
+with col2: btn_s = st.button("💎 ANALIZA LIMIT (EMA20)", use_container_width=True)
 
 if btn_m or btn_s:
     mode = "rynkowy" if btn_m else "sugerowany"
-    raw_data = pobierz_dane_zbiorcze(wybrany_int)
-    
-    if raw_data is not None:
-        finalne_dane = przetworz_wyniki(raw_data, mode)
-        if finalne_dane:
-            df = pd.DataFrame(finalne_dane).sort_values(by="Siła %", ascending=False)
-            st.dataframe(stylizuj_tabele(df), use_container_width=True)
-            st.success(f"Analiza gotowa dla interwału {wybrany_int}. Wyniki zapisane w cache na 2 min.")
+    raw = pobierz_dane_bezpiecznie(int_sel)
+    if raw is not None:
+        final = analizuj(raw, mode)
+        if final:
+            df_res = pd.DataFrame(final).sort_values(by="Siła %", ascending=False)
+            st.dataframe(stylizuj(df_res), use_container_width=True)
+            st.info("Dane zbuforowane na 5 min. Zmiana trybu przyciskiem nie obciąża serwera.")
         else:
-            st.warning("Pobrano dane, ale nie można obliczyć wskaźników. Spróbuj dłuższego interwału.")
+            st.warning("Pobrano dane, ale brak historii do obliczenia wskaźników. Wybierz mniejszy interwał.")
     else:
-        st.error("Przekroczono limit Yahoo. Poczekaj minutę i spróbuj ponownie.")
+        st.error("Yahoo blokuje zapytania. Odczekaj 2 minuty przed kolejnym skanem.")
