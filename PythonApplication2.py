@@ -4,9 +4,8 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO - Analiza Ekspercka", layout="wide")
+st.set_page_config(page_title="Skaner PRO - Final", layout="wide")
 
-# Pełna lista instrumentów z XTB
 KRYPTO_XTB = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
     "LINK-USD", "LTC-USD", "BCH-USD", "AVAX-USD", "MATIC-USD", "TRX-USD", 
@@ -18,31 +17,34 @@ interval_map = {
     "4 godz": "4h", "1 dzień": "1d", "1 tydz": "1wk", "1 mies": "1mo"
 }
 
-def pobierz_dane(tryb, interwal_label):
+# Funkcja z cache, aby nie blokować IP
+@st.cache_data(ttl=120) 
+def pobierz_dane_zbiorcze(interwal_label):
     interwal = interval_map[interwal_label]
-    # Dynamiczny dobór okresu
+    # Optymalny dobór okresu
     if interwal in ["5m", "15m", "30m"]: okres = "5d"
     elif interwal in ["1h", "4h"]: okres = "60d"
-    elif interwal == "1d": okres = "1y"
-    else: okres = "5y" # Dla 1wk i 1mo
+    else: okres = "1000d"
 
-    with st.spinner(f"Analizuję {len(KRYPTO_XTB)} instrumentów..."):
-        try:
-            # Pobieranie zbiorcze (optymalizacja połączenia)
-            data = yf.download(KRYPTO_XTB, period=okres, interval=interwal, group_by='ticker', progress=False, timeout=20)
-        except:
-            return None
+    try:
+        # Pobieranie wszystkich krypto naraz - najstabilniejsza metoda
+        data = yf.download(KRYPTO_XTB, period=okres, interval=interwal, group_by='ticker', progress=False, timeout=20)
+        return data
+    except:
+        return None
 
+def przetworz_wyniki(data, tryb):
+    if data is None: return None
     wyniki = []
+    
     for symbol in KRYPTO_XTB:
         try:
             df = data[symbol].dropna()
-            if len(df) < 50: continue
+            if len(df) < 30: continue
 
-            # Obliczenia techniczne
+            # Obliczenia
             df.ta.rsi(length=14, append=True)
             df.ta.ema(length=20, append=True)
-            df.ta.ema(length=50, append=True)
             df.ta.adx(length=14, append=True)
             df.ta.bbands(length=20, append=True)
             df.ta.atr(length=14, append=True)
@@ -55,17 +57,15 @@ def pobierz_dane(tryb, interwal_label):
             ema20 = float(l['EMA_20'])
             vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1
 
-            # Sygnał
             sig = "KUP" if cena > ema20 else "SPRZEDAJ"
             
-            # Punktacja Siły % (0-100)
-            score = 30
-            if (sig == "KUP" and cena > l['EMA_50']) or (sig == "SPRZEDAJ" and cena < l['EMA_50']): score += 20
+            # Punktacja SIŁY %
+            score = 40
             if (sig == "KUP" and rsi < 50) or (sig == "SPRZEDAJ" and rsi > 50): score += 20
-            if vol_ratio > 1.1: score += 15
+            if vol_ratio > 1.1: score += 20
             if l['ADX_14'] > 25: score += 15
 
-            # BB Status & Dywergencja
+            # Dywergencja i BB
             bb_stat = "Wewnątrz"
             if cena > l['BBU_20_2.0']: bb_stat = "Wybicie Górą"
             elif cena < l['BBL_20_2.0']: bb_stat = "Wybicie Dołem"
@@ -93,38 +93,44 @@ def pobierz_dane(tryb, interwal_label):
         except: continue
     return wyniki
 
-def stylizuj(df):
-    def apply(row):
+def stylizuj_tabele(df):
+    def row_style(row):
         s = [''] * len(row)
         sig = row['Sygnał']
-        # 1: Sygnał tło
+        # Sygnał tło
         s[1] = 'background-color: #1e4620; color: white' if sig == 'KUP' else 'background-color: #5f1a1d; color: white'
-        # 2: Siła tekst
+        # Siła %
         s[2] = 'color: #00ff00; font-weight: bold' if row['Siła %'] > 70 else 'color: #ff4b4b'
-        # 4: Wolumen tekst
+        # Wolumen
         s[4] = 'color: #00ff00' if row['Wolumen %'] > 100 else 'color: #ff4b4b'
-        # 5: RSI tekst
+        # RSI
         if sig == "KUP":
             s[5] = 'color: #00ff00' if row['RSI'] < 50 else 'color: #ff4b4b'
         else:
             s[5] = 'color: #00ff00' if row['RSI'] > 50 else 'color: #ff4b4b'
         return s
-    return df.style.apply(apply, axis=1)
+    return df.style.apply(row_style, axis=1)
 
 # --- UI ---
-st.title("⚖️ Skaner PRO - Analiza Precyzyjna")
+st.title("⚖️ Skaner PRO - Analiza Ekspercka Final")
 
-int_label = st.select_slider("Wybierz interwał (od 5m do 1M):", options=list(interval_map.keys()), value="4 godz")
+wybrany_int = st.select_slider("Wybierz interwał (5m - 1M):", options=list(interval_map.keys()), value="4 godz")
 
-col1, col2 = st.columns(2)
-with col1: btn_m = st.button("🚀 ANALIZA RYNKOWA", use_container_width=True)
-with col2: btn_s = st.button("💎 ANALIZA SUGEROWANA (LIMIT)", use_container_width=True)
+c1, c2 = st.columns(2)
+with c1: btn_m = st.button("🚀 ANALIZA RYNKOWA", use_container_width=True)
+with c2: btn_s = st.button("💎 ANALIZA SUGEROWANA (LIMIT)", use_container_width=True)
 
 if btn_m or btn_s:
     mode = "rynkowy" if btn_m else "sugerowany"
-    dane = pobierz_dane(mode, int_label)
-    if dane:
-        df_final = pd.DataFrame(dane).sort_values(by="Siła %", ascending=False)
-        st.dataframe(stylizuj(df_final), use_container_width=True)
+    raw_data = pobierz_dane_zbiorcze(wybrany_int)
+    
+    if raw_data is not None:
+        finalne_dane = przetworz_wyniki(raw_data, mode)
+        if finalne_dane:
+            df = pd.DataFrame(finalne_dane).sort_values(by="Siła %", ascending=False)
+            st.dataframe(stylizuj_tabele(df), use_container_width=True)
+            st.success(f"Analiza gotowa dla interwału {wybrany_int}. Wyniki zapisane w cache na 2 min.")
+        else:
+            st.warning("Pobrano dane, ale nie można obliczyć wskaźników. Spróbuj dłuższego interwału.")
     else:
-        st.error("Przekroczono limit zapytań Yahoo. Odczekaj 2 minuty.")
+        st.error("Przekroczono limit Yahoo. Poczekaj minutę i spróbuj ponownie.")
