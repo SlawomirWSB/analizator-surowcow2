@@ -5,7 +5,7 @@ import ccxt
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V6.0 - Pełna Edycja", layout="wide")
+st.set_page_config(page_title="Skaner PRO V6.1 - Final", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT", "DOT/USDT", 
           "LINK/USDT", "LTC/USDT", "AVAX/USDT", "MATIC/USDT", "TRX/USDT", "DOGE/USDT"]
@@ -16,7 +16,7 @@ interval_map = {
 }
 
 @st.cache_data(ttl=300)
-def pobierz_dane_v6(interwal_label):
+def pobierz_dane_v6_1(interwal_label):
     ex = ccxt.binanceus() 
     all_data = {}
     tf = interval_map[interwal_label]
@@ -42,7 +42,7 @@ def run_backtest(df):
     final = cap if pos == 0 else pos * test_data['Close'].iloc[-1]
     return round(((final - 1000) / 1000) * 100, 2)
 
-def przetworz_v6(data, tryb, kapital):
+def przetworz_v6_1(data, tryb, kapital):
     wyniki = []
     for sym, df in data.items():
         try:
@@ -63,13 +63,10 @@ def przetworz_v6(data, tryb, kapital):
             sig = "KUP" if c > e else "SPRZEDAJ"
             if a < 20: sig = "KONSOLIDACJA"
             
-            # CENA WEJŚCIA: Rynkowa lub EMA20 (Limit)
             wejscie = c if tryb == "rynkowy" else e
-            
             sl_dist = atr * 1.5
             sl_price = round(wejscie - sl_dist if sig == "KUP" else wejscie + sl_dist, 4)
             tp_price = round(wejscie + (atr * 2.5) if sig == "KUP" else wejscie - (atr * 2.5), 4)
-            
             ilosc = (kapital * 0.01) / sl_dist if sl_dist > 0 else 0
             
             wyniki.append({
@@ -91,36 +88,39 @@ def przetworz_v6(data, tryb, kapital):
     return wyniki
 
 # --- INTERFEJS ---
-st.title("⚖️ Skaner PRO V6.0")
+st.title("⚖️ Skaner PRO V6.1")
 
 with st.sidebar:
     st.header("Portfel")
     user_kapital = st.number_input("Kapitał (USD):", value=5000)
 
 wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
-
 tab1, tab2 = st.tabs(["🚀 ANALIZA - CENA RYNKOWA", "💎 ANALIZA - SUGEROWANA (LIMIT/EMA)"])
 
-def wyswietl_tabele(mode):
-    raw_data = pobierz_dane_v6(wybrany_int)
+def wyswietl(mode):
+    raw_data = pobierz_dane_v6_1(wybrany_int)
     if raw_data:
-        res = przetworz_v6(raw_data, mode, user_kapital)
+        res = przetworz_v6_1(raw_data, mode, user_kapital)
         df_res = pd.DataFrame(res).sort_values(by="Siła %", ascending=False)
         
         def stylizuj(row):
             s = [''] * len(row)
-            sig, stoch, vol = row['Sygnał'], row['StochRSI'], row['Wolumen %']
+            sig, rsi, stoch, vol = row['Sygnał'], row['RSI'], row['StochRSI'], row['Wolumen %']
             
             if sig == 'KUP': s[1] = 'background-color: #1e4620; color: white'
             elif sig == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d; color: white'
             
-            # StochRSI Logika
+            # RSI Kolorowanie (Przywrócone)
+            if sig == 'KUP': s[4] = 'color: #00ff00' if rsi < 50 else 'color: #ff4b4b'
+            elif sig == 'SPRZEDAJ': s[4] = 'color: #00ff00' if rsi > 50 else 'color: #ff4b4b'
+            
+            # StochRSI (Inteligente)
             if sig == 'KUP':
-                if stoch < 20: s[5] = 'background-color: #007d00; color: white'
-                elif stoch > 80: s[5] = 'background-color: #7d0000; color: white'
+                if stoch < 20: s[5] = 'background-color: #007d00; color: white' # OK
+                elif stoch > 80: s[5] = 'background-color: #7d0000; color: white' # RYZYKO
             elif sig == 'SPRZEDAJ':
-                if stoch > 80: s[5] = 'background-color: #007d00; color: white'
-                elif stoch < 20: s[5] = 'background-color: #7d0000; color: white'
+                if stoch > 80: s[5] = 'background-color: #007d00; color: white' # OK
+                elif stoch < 20: s[5] = 'background-color: #7d0000; color: white' # RYZYKO
             
             s[6] = 'color: #00ff00' if row['Pęd (MACD)'] == 'Wzrost' else 'color: #ff4b4b'
             s[7] = 'color: #00ff00; font-weight: bold' if row['Trend (ADX)'] > 25 else 'color: #ff4b4b'
@@ -133,10 +133,6 @@ def wyswietl_tabele(mode):
         st.dataframe(df_res.style.apply(stylizuj, axis=1), use_container_width=True)
 
 with tab1:
-    if st.button("URUCHOM ANALIZĘ RYNKOWĄ"):
-        wyswietl_tabele("rynkowy")
-
+    if st.button("ANALIZA RYNKOWA"): wyswietl("rynkowy")
 with tab2:
-    st.info("W tym trybie 'Cena Wejścia' to poziom średniej EMA20. Czekasz, aż cena do niej wróci.")
-    if st.button("URUCHOM ANALIZĘ LIMIT"):
-        wyswietl_tabele("limit")
+    if st.button("ANALIZA LIMIT"): wyswietl("limit")
