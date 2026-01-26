@@ -1,123 +1,131 @@
 import streamlit as st
 import pandas as pd
 import pandas_ta as ta
-import ccxt
-from datetime import datetime, timedelta
+import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V5 - System Ekspercki", layout="wide")
+st.set_page_config(page_title="Skaner PRO V5 - Hybryda", layout="wide")
 
-KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT", "DOT/USDT", "LINK/USDT", "LTC/USDT"]
-exchange = ccxt.binance()
+KRYPTO = [
+    "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
+    "LINK-USD", "LTC-USD", "AVAX-USD", "MATIC-USD"
+]
 
-def fetch_data(symbol, timeframe):
+interval_map = {
+    "5 min": "5m", "15 min": "15m", "30 min": "30m", "1 godz": "1h", 
+    "4 godz": "4h", "1 dzień": "1d"
+}
+
+@st.cache_data(ttl=600)
+def pobierz_dane_v5(interwal_label):
+    interwal = interval_map[interwal_label]
+    okres = "60d" if interwal in ["1h", "4h", "5m", "15m", "30m"] else "2y"
     try:
-        # Pobieramy 200 świec, aby mieć zapas dla wskaźników
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=200)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        return df
+        # Pobieramy dane grupowo dla szybkości
+        data = yf.download(KRYPTO, period=okres, interval=interwal, group_by='ticker', progress=False)
+        return data
     except Exception as e:
-        st.error(f"Błąd pobierania {symbol}: {e}")
+        st.error(f"Błąd yfinance: {e}")
         return None
 
-def run_backtest(df, score_threshold=70):
-    """Prosty backtest ostatnich 50 świec"""
-    capital = 1000.0
-    position = 0
-    trades = 0
+def run_backtest(df):
+    """Uproszczony backtest strategii opartej na EMA20 dla 50 ostatnich świec"""
+    if len(df) < 50: return 0
+    test_data = df.tail(50).copy()
+    test_data['EMA'] = ta.ema(test_data['Close'], length=20)
     
-    # Symulacja uproszczona na danych historycznych
-    for i in range(35, len(df)):
-        # Tu kopiujemy logikę sygnału (uproszczoną do Close > EMA)
-        ema = df.ta.ema(length=20)[i]
-        price = df['Close'][i]
+    initial_cap = 1000
+    cap = initial_cap
+    pos = 0
+    
+    for i in range(1, len(test_data)):
+        price = test_data['Close'].iloc[i]
+        ema = test_data['EMA'].iloc[i]
         
-        if price > ema and position == 0:
-            position = capital / price
-            trades += 1
-        elif price < ema and position > 0:
-            capital = position * price
-            position = 0
+        if price > ema and pos == 0:
+            pos = cap / price
+        elif price < ema and pos > 0:
+            cap = pos * price
+            pos = 0
             
-    final_val = capital if position == 0 else position * df['Close'].iloc[-1]
-    return round(((final_val - 1000) / 1000) * 100, 2), trades
+    final_val = cap if pos == 0 else pos * test_data['Close'].iloc[-1]
+    return round(((final_val - initial_cap) / initial_cap) * 100, 2)
 
-def przetworz_v5(symbol, timeframe):
-    df = fetch_data(symbol, timeframe)
-    if df is None or len(df) < 50: return None
-    
-    # Obliczenia Techniczne
-    df.ta.rsi(length=14, append=True)
-    df.ta.ema(length=20, append=True)
-    df.ta.adx(length=14, append=True)
-    df.ta.atr(length=14, append=True)
-    df['Vol_Avg'] = df['Volume'].rolling(20).mean()
-    
-    l = df.iloc[-1]
-    prev = df.iloc[-2]
-    
-    # Logika Sygnału
-    cena = l['Close']
-    ema20 = l['EMA_20']
-    adx = l['ADX_14']
-    rsi = l['RSI_14']
-    
-    # 1. Główny trend
-    trend_up = cena > ema20 and ema20 > prev['EMA_20']
-    trend_down = cena < ema20 and ema20 < prev['EMA_20']
-    
-    # 2. Scoring
-    score = 30
-    if adx > 25: score += 20 # Silny trend
-    if (trend_up and rsi < 60) or (trend_down and rsi > 40): score += 20 # Miejsce na ruch
-    if l['Volume'] > l['Vol_Avg']: score += 20 # Potwierdzenie wolumenem
-    
-    sig = "KUP" if trend_up else "SPRZEDAJ" if trend_down else "NEUTRAL"
-    if adx < 20: sig = "KONSOLIDACJA" # Filtr trendu bocznego
-    
-    # Backtest
-    profit, num_trades = run_backtest(df)
-    
-    atr = l['ATRr_14']
-    return {
-        "Instrument": symbol,
-        "Sygnał": sig,
-        "Siła %": min(score, 99) if sig != "KONSOLIDACJA" else 0,
-        "Cena": round(cena, 4),
-        "ADX (Siła)": round(adx, 1),
-        "RSI": round(rsi, 1),
-        "Est. Profit (hist)": f"{profit}%",
-        "TP": round(cena + (atr * 2.5) if trend_up else cena - (atr * 2.5), 4),
-        "SL": round(cena - (atr * 1.5) if trend_up else cena + (atr * 1.5), 4)
-    }
+def przetworz_v5(data, tryb):
+    if data is None: return []
+    wyniki = []
+    for symbol in KRYPTO:
+        try:
+            df = data[symbol].dropna()
+            if len(df) < 35: continue
+            
+            # Wskaźniki PRO
+            df.ta.rsi(length=14, append=True)
+            df.ta.ema(length=20, append=True)
+            df.ta.adx(length=14, append=True)
+            df.ta.atr(length=14, append=True)
+            df['Vol_Avg'] = df['Volume'].rolling(20).mean()
+            
+            l = df.iloc[-1]
+            cena = float(l['Close'])
+            ema20 = float(l['EMA_20'])
+            adx = float(l['ADX_14'])
+            rsi = float(l['RSI_14'])
+            atr = float(l['ATRr_14'])
+            
+            # Logika sygnału i scoringu
+            sig = "KUP" if cena > ema20 else "SPRZEDAJ"
+            if adx < 20: sig = "KONSOLIDACJA"
+            
+            score = 40
+            if adx > 25: score += 20
+            if (sig == "KUP" and rsi < 60) or (sig == "SPRZEDAJ" and rsi > 40): score += 20
+            if l['Volume'] > l['Vol_Avg'] * 1.1: score += 20
+            
+            # Backtesting historyczny dla tego symbolu
+            hist_perf = run_backtest(df)
+            
+            wej = cena if tryb == "rynkowy" else ema20
+            
+            wyniki.append({
+                "Instrument": symbol.replace("-USD", ""),
+                "Sygnał": sig,
+                "Siła %": min(score, 98) if sig != "KONSOLIDACJA" else 0,
+                "Cena": round(cena, 4),
+                "RSI": round(rsi, 1),
+                "ADX": round(adx, 1),
+                "Hist. 50 świec": f"{hist_perf}%",
+                "TP (Cel)": round(wej + (atr*2.5) if sig=="KUP" else wej - (atr*2.5), 4),
+                "SL (Stop)": round(wej - (atr*1.5) if sig=="KUP" else wej + (atr*1.5), 4)
+            })
+        except: continue
+    return wyniki
 
-# --- INTERFEJS ---
-st.title("⚖️ Skaner Ekspercki V5")
-st.caption("Dane z Binance Real-Time | Filtry trendu ADX | Backtesting Historyczny")
+# --- UI ---
+st.title("⚖️ Skaner PRO - System Ekspercki V5")
+wybrany_int = st.select_slider("Wybierz interwał:", options=list(interval_map.keys()), value="4 godz")
 
-t_frame = st.selectbox("Interwał", ["15m", "1h", "4h", "1d"], index=1)
+c1, c2 = st.columns(2)
+with c1: btn_m = st.button("🚀 ANALIZA - CENA RYNKOWA", use_container_width=True)
+with c2: btn_s = st.button("💎 ANALIZA - SUGEROWANA (LIMIT)", use_container_width=True)
 
-if st.button("URUCHOM ANALIZĘ MOCY", use_container_width=True):
-    results = []
-    progress_bar = st.progress(0)
-    
-    for idx, s in enumerate(KRYPTO):
-        res = przetworz_v5(s, t_frame)
-        if res: results.append(res)
-        progress_bar.progress((idx + 1) / len(KRYPTO))
-        
-    if results:
-        df_res = pd.DataFrame(results).sort_values(by="Siła %", ascending=False)
-        
-        # Stylizacja
-        def color_signal(val):
-            if val == "KUP": return 'background-color: #004d00; color: white'
-            if val == "SPRZEDAJ": return 'background-color: #4d0000; color: white'
-            return ''
+if btn_m or btn_s:
+    mode = "rynkowy" if btn_m else "sugerowany"
+    with st.spinner('Pobieranie i analiza danych...'):
+        raw_data = pobierz_dane_v5(wybrany_int)
+        if raw_data is not None:
+            finalne = przetworz_v5(raw_data, mode)
+            if finalne:
+                df_res = pd.DataFrame(finalne).sort_values(by="Siła %", ascending=False)
+                
+                # Stylizacja tabeli
+                def stylizuj(row):
+                    s = [''] * len(row)
+                    if row['Sygnał'] == 'KUP': s[1] = 'background-color: #1e4620'
+                    elif row['Sygnał'] == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d'
+                    return s
 
-        st.dataframe(df_res.style.applymap(color_signal, subset=['Sygnał']), use_container_width=True)
-        
-        st.info("💡 **Legenda:** 'Est. Profit' pokazuje wynik strategii opartej na EMA20 dla ostatnich 200 świec na tym interwale.")
-    else:
-        st.warning("Brak danych do wyświetlenia.")
+                st.dataframe(df_res.style.apply(stylizuj, axis=1), use_container_width=True)
+                st.caption("Pamiętaj: 'Hist. 50 świec' to symulacja zysku/straty dla strategii EMA20 na ostatnim odcinku czasu.")
+            else:
+                st.warning("Brak wystarczającej ilości danych.")
