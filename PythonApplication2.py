@@ -4,7 +4,7 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V5.1", layout="wide")
+st.set_page_config(page_title="Skaner PRO V5.2", layout="wide")
 
 KRYPTO = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOT-USD", 
@@ -34,19 +34,11 @@ def run_backtest(df):
     if len(df) < 51: return 0.0
     test_data = df.tail(50).copy()
     test_data['EMA'] = ta.ema(test_data['Close'], length=20)
-    
-    cap = 1000.0
-    pos = 0.0
-    
+    cap, pos = 1000.0, 0.0
     for i in range(1, len(test_data)):
-        price = test_data['Close'].iloc[i]
-        ema = test_data['EMA'].iloc[i]
-        if price > ema and pos == 0:
-            pos = cap / price
-        elif price < ema and pos > 0:
-            cap = pos * price
-            pos = 0.0
-            
+        price, ema = test_data['Close'].iloc[i], test_data['EMA'].iloc[i]
+        if price > ema and pos == 0: pos = cap / price
+        elif price < ema and pos > 0: cap, pos = pos * price, 0.0
     final_val = cap if pos == 0 else pos * test_data['Close'].iloc[-1]
     return round(((final_val - 1000) / 1000) * 100, 2)
 
@@ -57,43 +49,27 @@ def przetworz_v5(data, tryb):
         try:
             df = data[symbol].dropna()
             if len(df) < 35: continue
-            
-            # Wskaźniki
-            df.ta.rsi(length=14, append=True)
-            df.ta.ema(length=20, append=True)
-            df.ta.adx(length=14, append=True)
-            df.ta.atr(length=14, append=True)
+            df.ta.rsi(length=14, append=True); df.ta.ema(length=20, append=True)
+            df.ta.adx(length=14, append=True); df.ta.atr(length=14, append=True)
             df['Vol_Avg'] = df['Volume'].rolling(20).mean()
-            
             l = df.iloc[-1]
-            cena = float(l['Close'])
-            ema20 = float(l['EMA_20'])
-            adx = float(l['ADX_14'])
-            rsi = float(l['RSI_14'])
-            atr = float(l['ATRr_14'])
+            cena, ema20, adx, rsi, atr = float(l['Close']), float(l['EMA_20']), float(l['ADX_14']), float(l['RSI_14']), float(l['ATRr_14'])
             vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
             
-            # Logika Sygnału
             sig = "KUP" if cena > ema20 else "SPRZEDAJ"
             if adx < 20: sig = "KONSOLIDACJA"
             
             score = 45
             if adx > 25: score += 20
-            if (sig == "KUP" and rsi < 55) or (sig == "SPRZEDAJ" and rsi > 45): score += 15
+            if (sig == "KUP" and rsi < 50) or (sig == "SPRZEDAJ" and rsi > 50): score += 20
             if vol_ratio > 1.1: score += 15
             
             wej = cena if tryb == "rynkowy" else ema20
-            hist_perf = run_backtest(df)
-            
             wyniki.append({
                 "Instrument": symbol.replace("-USD", ""),
-                "Sygnał": sig,
-                "Siła %": min(score, 98) if sig != "KONSOLIDACJA" else 0,
-                "Cena Wejścia": round(wej, 4),
-                "RSI": round(rsi, 1),
-                "ADX": round(adx, 1),
-                "Wolumen %": round(vol_ratio * 100),
-                "Hist. 50 świec": f"{hist_perf}%",
+                "Sygnał": sig, "Siła %": min(score, 98) if sig != "KONSOLIDACJA" else 0,
+                "Cena Wejścia": round(wej, 4), "RSI": round(rsi, 1), "ADX": round(adx, 1),
+                "Wolumen %": round(vol_ratio * 100), "Hist. 50 świec": f"{run_backtest(df)}%",
                 "TP (Cel)": round(wej + (atr*2.5) if sig=="KUP" else wej - (atr*2.5), 4),
                 "SL (Stop)": round(wej - (atr*1.5) if sig=="KUP" else wej + (atr*1.5), 4)
             })
@@ -101,9 +77,8 @@ def przetworz_v5(data, tryb):
     return wyniki
 
 # --- INTERFEJS ---
-st.title("⚖️ Skaner PRO - System Ekspercki V5.1")
+st.title("⚖️ Skaner PRO - System Ekspercki V5.2")
 wybrany_int = st.select_slider("Wybierz interwał:", options=list(interval_map.keys()), value="4 godz")
-
 c1, c2 = st.columns(2)
 with c1: btn_m = st.button("🚀 ANALIZA - CENA RYNKOWA", use_container_width=True)
 with c2: btn_s = st.button("💎 ANALIZA - SUGEROWANA (LIMIT)", use_container_width=True)
@@ -115,17 +90,18 @@ if btn_m or btn_s:
         finalne = przetworz_v5(raw_data, mode)
         if finalne:
             df_res = pd.DataFrame(finalne).sort_values(by="Siła %", ascending=False)
-            
             def stylizuj(row):
-                s = [''] * len(row)
-                sig = row['Sygnał']
-                if sig == 'KUP': s[1] = 'background-color: #1e4620; color: white'
-                elif sig == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d; color: white'
-                s[2] = 'color: #00ff00; font-weight: bold' if row['Siła %'] > 70 else ''
+                s = [''] * len(row); sig = row['Sygnał']
+                s[1] = 'background-color: #1e4620; color: white' if sig == 'KUP' else 'background-color: #5f1a1d; color: white' if sig == 'SPRZEDAJ' else ''
+                s[2] = 'color: #00ff00; font-weight: bold' if row['Siła %'] > 70 else 'color: #ff4b4b'
+                # Kolorowanie potwierdzające sygnał
+                if sig == "KUP": s[4] = 'color: #00ff00' if row['RSI'] < 50 else 'color: #ff4b4b'
+                elif sig == "SPRZEDAJ": s[4] = 'color: #00ff00' if row['RSI'] > 50 else 'color: #ff4b4b'
+                s[5] = 'color: #00ff00; font-weight: bold' if row['ADX'] > 25 else ''
                 s[6] = 'color: #00ff00' if row['Wolumen %'] > 100 else 'color: #ff4b4b'
+                # Kolorowanie wyniku historycznego
+                val_hist = float(row['Hist. 50 świec'].replace('%',''))
+                s[7] = 'color: #00ff00' if val_hist > 0 else 'color: #ff4b4b' if val_hist < 0 else ''
                 return s
-
             st.dataframe(df_res.style.apply(stylizuj, axis=1), use_container_width=True)
-            st.caption("Legenda: 'Cena Wejścia' zależy od wybranego trybu (Rynek vs Limit/EMA20).")
-        else:
-            st.warning("Za mało danych dla tego interwału.")
+        else: st.warning("Za mało danych.")
