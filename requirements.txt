@@ -1,4 +1,4 @@
 streamlit
 pandas
 pandas_ta
-git+https://github.com/alias-rahil/tvdatafeed.git
+ccxt
