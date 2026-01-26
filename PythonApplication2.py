@@ -5,7 +5,7 @@ import ccxt
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V6.1 - Final", layout="wide")
+st.set_page_config(page_title="Skaner PRO V6.2 - Automatyczny", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT", "DOT/USDT", 
           "LINK/USDT", "LTC/USDT", "AVAX/USDT", "MATIC/USDT", "TRX/USDT", "DOGE/USDT"]
@@ -16,7 +16,7 @@ interval_map = {
 }
 
 @st.cache_data(ttl=300)
-def pobierz_dane_v6_1(interwal_label):
+def pobierz_dane_v6_2(interwal_label):
     ex = ccxt.binanceus() 
     all_data = {}
     tf = interval_map[interwal_label]
@@ -42,8 +42,11 @@ def run_backtest(df):
     final = cap if pos == 0 else pos * test_data['Close'].iloc[-1]
     return round(((final - 1000) / 1000) * 100, 2)
 
-def przetworz_v6_1(data, tryb, kapital):
+def przetworz_v6_2(data, tryb, kapital_pln):
     wyniki = []
+    # Zakładamy kurs USD/PLN dla kalkulatora (można uprościć do 4.0 lub pobrać)
+    kurs_usd_pln = 4.0 
+    
     for sym, df in data.items():
         try:
             df.ta.rsi(length=14, append=True)
@@ -67,7 +70,11 @@ def przetworz_v6_1(data, tryb, kapital):
             sl_dist = atr * 1.5
             sl_price = round(wejscie - sl_dist if sig == "KUP" else wejscie + sl_dist, 4)
             tp_price = round(wejscie + (atr * 2.5) if sig == "KUP" else wejscie - (atr * 2.5), 4)
-            ilosc = (kapital * 0.01) / sl_dist if sl_dist > 0 else 0
+            
+            # Kalkulator w PLN (Ryzyko 1% kapitału PLN)
+            ryzyko_pln = kapital_pln * 0.01
+            ryzyko_usd = ryzyko_pln / kurs_usd_pln
+            ilosc = ryzyko_usd / sl_dist if sl_dist > 0 else 0
             
             wyniki.append({
                 "Instrument": sym.replace("/USDT", ""), 
@@ -79,7 +86,7 @@ def przetworz_v6_1(data, tryb, kapital):
                 "Pęd (MACD)": "Wzrost" if macd_h > 0 else "Spadek",
                 "Trend (ADX)": round(a, 1),
                 "Wolumen %": round(vol_ratio * 100),
-                "Ile kupić (1%)": round(ilosc, 4),
+                "Ile kupić (1% PLN)": round(ilosc, 4),
                 "TP (Cel)": tp_price,
                 "SL (Stop)": sl_price,
                 "Hist. 50ś": f"{run_backtest(df)}%"
@@ -88,40 +95,46 @@ def przetworz_v6_1(data, tryb, kapital):
     return wyniki
 
 # --- INTERFEJS ---
-st.title("⚖️ Skaner PRO V6.1")
+st.title("⚖️ Skaner PRO V6.2 - Auto-Refresh")
 
 with st.sidebar:
-    st.header("Portfel")
-    user_kapital = st.number_input("Kapitał (USD):", value=5000)
+    st.header("Zarządzanie Portfelem")
+    user_kapital = st.number_input("Twój Kapitał (PLN):", value=10000, step=100)
+    st.caption("Kalkulator wylicza pozycję dla 1% ryzyka kapitału w PLN.")
 
-wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
+wybrany_int = st.select_slider("Wybierz interwał (zmiana odświeża dane):", 
+                               options=list(interval_map.keys()), value="4 godz")
+
 tab1, tab2 = st.tabs(["🚀 ANALIZA - CENA RYNKOWA", "💎 ANALIZA - SUGEROWANA (LIMIT/EMA)"])
 
-def wyswietl(mode):
-    raw_data = pobierz_dane_v6_1(wybrany_int)
+# Funkcja renderująca tabelę bez przycisku
+def renderuj_analize(mode):
+    raw_data = pobierz_dane_v6_2(wybrany_int)
     if raw_data:
-        res = przetworz_v6_1(raw_data, mode, user_kapital)
+        res = przetworz_v6_2(raw_data, mode, user_kapital)
         df_res = pd.DataFrame(res).sort_values(by="Siła %", ascending=False)
         
         def stylizuj(row):
             s = [''] * len(row)
             sig, rsi, stoch, vol = row['Sygnał'], row['RSI'], row['StochRSI'], row['Wolumen %']
             
+            # Kolor Sygnału
             if sig == 'KUP': s[1] = 'background-color: #1e4620; color: white'
             elif sig == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d; color: white'
             
-            # RSI Kolorowanie (Przywrócone)
+            # RSI Kolorowanie
             if sig == 'KUP': s[4] = 'color: #00ff00' if rsi < 50 else 'color: #ff4b4b'
             elif sig == 'SPRZEDAJ': s[4] = 'color: #00ff00' if rsi > 50 else 'color: #ff4b4b'
             
-            # StochRSI (Inteligente)
+            # StochRSI Inteligente
             if sig == 'KUP':
-                if stoch < 20: s[5] = 'background-color: #007d00; color: white' # OK
-                elif stoch > 80: s[5] = 'background-color: #7d0000; color: white' # RYZYKO
+                if stoch < 20: s[5] = 'background-color: #007d00; color: white'
+                elif stoch > 80: s[5] = 'background-color: #7d0000; color: white'
             elif sig == 'SPRZEDAJ':
-                if stoch > 80: s[5] = 'background-color: #007d00; color: white' # OK
-                elif stoch < 20: s[5] = 'background-color: #7d0000; color: white' # RYZYKO
+                if stoch > 80: s[5] = 'background-color: #007d00; color: white'
+                elif stoch < 20: s[5] = 'background-color: #7d0000; color: white'
             
+            # Reszta
             s[6] = 'color: #00ff00' if row['Pęd (MACD)'] == 'Wzrost' else 'color: #ff4b4b'
             s[7] = 'color: #00ff00; font-weight: bold' if row['Trend (ADX)'] > 25 else 'color: #ff4b4b'
             s[8] = 'color: #00ff00' if vol > 110 else 'color: #ff4b4b' if vol < 90 else ''
@@ -131,8 +144,11 @@ def wyswietl(mode):
             return s
             
         st.dataframe(df_res.style.apply(stylizuj, axis=1), use_container_width=True)
+    else:
+        st.error("Błąd pobierania danych z giełdy.")
 
 with tab1:
-    if st.button("ANALIZA RYNKOWA"): wyswietl("rynkowy")
+    renderuj_analize("rynkowy")
+
 with tab2:
-    if st.button("ANALIZA LIMIT"): wyswietl("limit")
+    renderuj_analize("limit")
