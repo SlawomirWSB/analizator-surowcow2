@@ -6,7 +6,7 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V7.0 - Precyzja", layout="wide")
+st.set_page_config(page_title="Skaner PRO V7.0 - Ultra Precyzja", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
           "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
@@ -63,8 +63,10 @@ def run_backtest(df):
     final = cap if pos == 0 else pos * td['Close'].iloc[-1]
     return round(((final - 1000) / 1000) * 100, 2)
 
-def analizuj(df, kapital_pln, tryb_wejscia):
+def analizuj(df_raw, kapital_pln, tryb_wejscia):
     try:
+        df = df_raw.copy()
+        # Obliczenia techniczne
         df.ta.rsi(length=14, append=True)
         df.ta.ema(length=20, append=True)
         df.ta.adx(length=14, append=True)
@@ -81,21 +83,41 @@ def analizuj(df, kapital_pln, tryb_wejscia):
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
-        sig = "KUP" if cena_aktualna > ema20 else "SPRZEDAJ"
-        if a < 20: sig = "KONSOLIDACJA"
+        # --- LOGIKA NISKIEGO RYZYKA (FILTRY) ---
+        buffer = atr * 0.15
         
-        # DEFINICJA CENY WEJŚCIA
+        # Warunki konfluencji
+        long_cond = (cena_aktualna > ema20 + buffer) and (a > 25) and (stoch_k < 30) and (macd_h > 0) and (vol_ratio >= 1.0)
+        short_cond = (cena_aktualna < ema20 - buffer) and (a > 25) and (stoch_k > 70) and (macd_h < 0) and (vol_ratio >= 1.0)
+        
+        if long_cond:
+            sig = "KUP"
+        elif short_cond:
+            sig = "SPRZEDAJ"
+        elif a < 20:
+            sig = "KONSOLIDACJA"
+        else:
+            sig = "CZEKAJ"
+        
+        # Definicja ceny wejścia
         wejscie = cena_aktualna if tryb_wejscia == "Rynkowa" else ema20
-        
         sl_dist = atr * 1.5
-        ilosc = (kapital_pln * 0.01) / (sl_dist * 4.0) if sl_dist > 0 else 0
         
+        # Poprawione Risk Management (1% kapitału na ryzyko dystansu SL)
+        ilosc = (kapital_pln * 0.01) / sl_dist if sl_dist > 0 else 0
+        
+        # Dynamiczna Siła %
+        sila = 40
+        if a > 30: sila += 20
+        if vol_ratio > 1.2: sila += 20
+        if (sig == "KUP" and r < 40) or (sig == "SPRZEDAJ" and r > 60): sila += 18
+
         return {
             "Instrument": "", 
             "Sygnał": sig, 
-            "Siła %": min(98, 40 + (20 if a > 25 else 0) + (15 if (sig=="KUP" and macd_h>0) or (sig=="SPRZEDAJ" and macd_h<0) else 0)),
-            "Cena Rynkowa": round(cena_aktualna, 4), # NOWA KOLUMNA
-            "Cena Wejścia": round(wejscie, 4),   # KOLUMNA ZALEŻNA OD TRYBU
+            "Siła %": min(98, sila),
+            "Cena Rynkowa": round(cena_aktualna, 4),
+            "Cena Wejścia": round(wejscie, 4),
             "RSI": round(r, 1), 
             "StochRSI": round(stoch_k, 1),
             "Pęd": "Wzrost" if macd_h > 0 else "Spadek", 
@@ -114,13 +136,17 @@ def stylizuj(row):
     sig, rsi, stoch, vol = row['Sygnał'], row['RSI'], row['StochRSI'], row['Wolumen %']
     if sig == 'KUP': s[1] = 'background-color: #1e4620; color: white'
     elif sig == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d; color: white'
+    
     if sig == 'KUP': s[5] = 'color: #00ff00' if rsi < 50 else 'color: #ff4b4b'
     elif sig == 'SPRZEDAJ': s[5] = 'color: #00ff00' if rsi > 50 else 'color: #ff4b4b'
+    
     if (sig == 'KUP' and stoch < 20) or (sig == 'SPRZEDAJ' and stoch > 80): s[6] = 'background-color: #007d00; color: white'
     elif (sig == 'KUP' and stoch > 80) or (sig == 'SPRZEDAJ' and stoch < 20): s[6] = 'background-color: #7d0000; color: white'
+    
     s[7] = 'color: #00ff00' if row['Pęd'] == 'Wzrost' else 'color: #ff4b4b'
     s[8] = 'color: #00ff00; font-weight: bold' if row['ADX'] > 25 else 'color: #ff4b4b'
     s[9] = 'color: #00ff00' if vol > 110 else 'color: #ff4b4b' if vol < 80 else ''
+    
     v_h = float(row['Hist. 50ś'].replace('%',''))
     s[13] = 'color: #00ff00' if v_h > 0 else 'color: #ff4b4b' if v_h < 0 else ''
     return s
@@ -132,19 +158,24 @@ with st.sidebar:
     wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
 
-st.title("⚖️ Skaner PRO V7.0")
+st.title("⚖️ Skaner PRO V7.0 - Ultra Precyzja")
+st.info("Logika wejścia: Trend (EMA20) + Siła (ADX) + Korekta (StochRSI) + Pęd (MACD) + Potwierdzenie Wolumenu.")
+
 tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
 
 for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
     with tab:
         dane = data_func(wybrany_int)
         wyniki = []
-        for s, df in dane.items():
-            res = analizuj(df, user_kapital, tryb)
-            if res: 
-                res["Instrument"] = s
-                wyniki.append(res)
+        if dane:
+            for s, df in dane.items():
+                res = analizuj(df, user_kapital, tryb)
+                if res: 
+                    res["Instrument"] = s
+                    wyniki.append(res)
+        
         if wyniki:
-            # Reorder columns to put Market and Entry side by side
             df_final = pd.DataFrame(wyniki)[["Instrument", "Sygnał", "Siła %", "Cena Rynkowa", "Cena Wejścia", "RSI", "StochRSI", "Pęd", "ADX", "Wolumen %", "Ile kupić (1%)", "TP", "SL", "Hist. 50ś"]]
             st.dataframe(df_final.style.apply(stylizuj, axis=1), use_container_width=True)
+        else:
+            st.warning("Brak sygnałów spełniających rygorystyczne kryteria bezpieczeństwa w tej chwili.")
