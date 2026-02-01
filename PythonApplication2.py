@@ -6,7 +6,7 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V7.8 - Dynamic Risk", layout="wide")
+st.set_page_config(page_title="Skaner PRO V7.9 - Top Opportunities", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
           "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
@@ -82,7 +82,6 @@ def analizuj(df_raw, kapital_pln, tryb_wejscia, stopien_ryzyka):
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
-        # PROGI LOGICZNE
         if stopien_ryzyka == "Rygorystyczny":
             stoch_buy, stoch_sell, adx_min, vol_min, buffer_mult = 30, 70, 25, 1.0, 0.15
         else:
@@ -101,8 +100,16 @@ def analizuj(df_raw, kapital_pln, tryb_wejscia, stopien_ryzyka):
         sl_dist = atr * 1.5
         ilosc = (kapital_pln * 0.01) / sl_dist if sl_dist > 0 else 0
         
+        # Obliczanie siły sygnału dla potrzeb sortowania
+        base_power = 0
+        if sig == "KUP" or sig == "SPRZEDAJ": base_power = 70
+        elif sig == "CZEKAJ": base_power = 40
+        else: base_power = 20
+        
+        sila = base_power + (15 if a > 25 else 0) + (10 if vol_ratio > 1.1 else 0)
+
         return {
-            "Instrument": "", "Sygnał": sig, "Siła %": min(98, 40 + (20 if a > 25 else 0) + (15 if vol_ratio > 1.1 else 0)),
+            "Instrument": "", "Sygnał": sig, "Siła %": min(98, sila),
             "Cena Rynkowa": round(cena_aktualna, 4), "Cena Wejścia": round(wejscie, 4),
             "RSI": round(r, 1), "StochRSI": round(stoch_k, 1), "Pęd": "Wzrost" if macd_h > 0 else "Spadek", 
             "ADX": round(a, 1), "Wolumen %": round(vol_ratio * 100), "Ile kupić (1%)": round(ilosc, 4),
@@ -112,43 +119,32 @@ def analizuj(df_raw, kapital_pln, tryb_wejscia, stopien_ryzyka):
         }
     except: return None
 
-# --- UJEDNOLICONA STYLIZACJA (TRAFFIC LIGHT TEXT) ---
 def stylizuj(row, stopien_ryzyka):
     s = [''] * len(row)
     sig = row['Sygnał']
-    
-    # Próg kolorowania StochRSI zależny od trybu
     stoch_threshold_buy = 50 if stopien_ryzyka == "Poluzowany" else 30
     stoch_threshold_sell = 50 if stopien_ryzyka == "Poluzowany" else 70
 
-    # 1. Sygnał - Tło tylko dla akcji
     if sig == 'KUP': s[1] = 'background-color: #00ff00; color: black; font-weight: bold'
     elif sig == 'SPRZEDAJ': s[1] = 'background-color: #ff0000; color: white; font-weight: bold'
     
-    # 2. RSI - Kolor czcionki
     rsi = row['RSI']
     if rsi > 70: s[5] = 'color: #ff4b4b'
     elif rsi < 30: s[5] = 'color: #00ff00'
     
-    # 3. StochRSI - Kolor czcionki ujednolicony z trybem ryzyka
     stoch = row['StochRSI']
     if stoch < stoch_threshold_buy: s[6] = 'color: #00ff00'
     elif stoch > stoch_threshold_sell: s[6] = 'color: #ff4b4b'
     
-    # 4. Pęd - Kolor czcionki
     s[7] = 'color: #00ff00' if row['Pęd'] == 'Wzrost' else 'color: #ff4b4b'
-    
-    # 5. ADX - Kolor czcionki
     adx = row['ADX']
     if adx > 25: s[8] = 'color: #00ff00'
     elif adx < 20: s[8] = 'color: #ff9900'
     
-    # 6. Wolumen - Kolor czcionki
     vol = row['Wolumen %']
     if vol > 110: s[9] = 'color: #00ff00'
     elif vol < 80: s[9] = 'color: #ff4b4b'
 
-    # 7. Historia - Kolor czcionki
     v_h_val = float(row['Hist. 50ś'].replace('%',''))
     s[13] = 'color: #00ff00' if v_h_val > 0 else 'color: #ff4b4b' if v_h_val < 0 else ''
     
@@ -162,8 +158,8 @@ with st.sidebar:
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
     ryzyko = st.radio("Stopień Ryzyka:", ["Rygorystyczny", "Poluzowany"])
 
-st.title("⚖️ Skaner PRO V7.8")
-st.info(f"Parametry: **{ryzyko}** | Wejście: **{tryb}** | Interwał: **{wybrany_int}**")
+st.title("⚖️ Skaner PRO V7.9")
+st.info(f"Top sygnały na górze listy | Tryb: **{ryzyko}** | Interwał: **{wybrany_int}**")
 
 tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
 
@@ -180,7 +176,10 @@ for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
         
         if wyniki:
             df_final = pd.DataFrame(wyniki)[["Instrument", "Sygnał", "Siła %", "Cena Rynkowa", "Cena Wejścia", "RSI", "StochRSI", "Pęd", "ADX", "Wolumen %", "Ile kupić (1%)", "TP", "SL", "Hist. 50ś"]]
-            # Przekazujemy stopień_ryzyka do funkcji stylizującej
+            
+            # SORTOWANIE: Od największej szansy (Siła %) do najmniejszej
+            df_final = df_final.sort_values(by="Siła %", ascending=False)
+            
             st.dataframe(df_final.style.apply(stylizuj, axis=1, stopien_ryzyka=ryzyko), use_container_width=True)
         else:
-            st.warning("Oczekiwanie na dane...")
+            st.warning("Pobieranie danych...")
