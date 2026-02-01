@@ -6,7 +6,7 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V7.5 - Multi-Risk", layout="wide")
+st.set_page_config(page_title="Skaner PRO V7.6 - Heatmap", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
           "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
@@ -82,21 +82,12 @@ def analizuj(df_raw, kapital_pln, tryb_wejscia, stopien_ryzyka):
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
-        # --- PARAMETRY RYZYKA ---
         if stopien_ryzyka == "Rygorystyczny":
-            stoch_buy, stoch_sell = 30, 70
-            adx_min = 25
-            vol_min = 1.0
-            buffer_mult = 0.15
-        else: # Poluzowany
-            stoch_buy, stoch_sell = 50, 50
-            adx_min = 20
-            vol_min = 0.8
-            buffer_mult = 0.05
+            stoch_buy, stoch_sell, adx_min, vol_min, buffer_mult = 30, 70, 25, 1.0, 0.15
+        else:
+            stoch_buy, stoch_sell, adx_min, vol_min, buffer_mult = 50, 50, 20, 0.8, 0.05
             
         buffer = atr * buffer_mult
-        
-        # Logika sygnałów
         long_cond = (cena_aktualna > ema20 + buffer) and (a > adx_min) and (stoch_k < stoch_buy) and (macd_h > 0) and (vol_ratio >= vol_min)
         short_cond = (cena_aktualna < ema20 - buffer) and (a > adx_min) and (stoch_k > stoch_sell) and (macd_h < 0) and (vol_ratio >= vol_min)
         
@@ -120,28 +111,54 @@ def analizuj(df_raw, kapital_pln, tryb_wejscia, stopien_ryzyka):
         }
     except: return None
 
-# --- STYLIZACJA (Bez zmian) ---
+# --- NOWA ZAAWANSOWANA STYLIZACJA ---
 def stylizuj(row):
     s = [''] * len(row)
-    sig, rsi, stoch, vol = row['Sygnał'], row['RSI'], row['StochRSI'], row['Wolumen %']
-    if sig == 'KUP': s[1] = 'background-color: #1e4620; color: white'
-    elif sig == 'SPRZEDAJ': s[1] = 'background-color: #5f1a1d; color: white'
+    sig = row['Sygnał']
+    
+    # Sygnał Główny
+    if sig == 'KUP': s[1] = 'background-color: #00ff00; color: black; font-weight: bold'
+    elif sig == 'SPRZEDAJ': s[1] = 'background-color: #ff0000; color: white; font-weight: bold'
+    elif sig == 'KONSOLIDACJA': s[1] = 'background-color: #444444; color: #bbbbbb'
+    
+    # RSI (Kolorowanie pod kątem ekstremów)
+    rsi = row['RSI']
+    if rsi > 70: s[5] = 'background-color: #660000; color: white' # Przegrzanie
+    elif rsi < 30: s[5] = 'background-color: #004400; color: white' # Wyprzedanie
+    
+    # StochRSI (Warunek wejścia)
+    stoch = row['StochRSI']
+    if stoch < 20: s[6] = 'color: #00ff00; border: 1px solid #00ff00'
+    elif stoch > 80: s[6] = 'color: #ff4b4b; border: 1px solid #ff4b4b'
+    
+    # Pęd
     s[7] = 'color: #00ff00' if row['Pęd'] == 'Wzrost' else 'color: #ff4b4b'
-    s[8] = 'color: #00ff00; font-weight: bold' if row['ADX'] > 25 else 'color: #ff4b4b'
+    
+    # ADX (Siła trendu)
+    adx = row['ADX']
+    if adx > 25: s[8] = 'background-color: #005500; color: white'
+    elif adx < 20: s[8] = 'background-color: #333333; color: #ff9900'
+    
+    # Wolumen
+    vol = row['Wolumen %']
+    if vol > 120: s[9] = 'color: #00ff00; font-weight: bold'
+    elif vol < 50: s[9] = 'color: #777777'
+
+    # Historia
     v_h = float(row['Hist. 50ś'].replace('%',''))
-    s[13] = 'color: #00ff00' if v_h > 0 else 'color: #ff4b4b' if v_h < 0 else ''
+    s[13] = 'background-color: #002200' if v_h > 5 else 'background-color: #220000' if v_h < -5 else ''
+    
     return s
 
 # --- INTERFEJS ---
 with st.sidebar:
     st.header("⚙️ Ustawienia")
     user_kapital = st.number_input("Kapitał (PLN):", value=10000)
-    wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
+    wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="15 min")
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
     ryzyko = st.radio("Stopień Ryzyka:", ["Rygorystyczny", "Poluzowany"])
 
-st.title("⚖️ Skaner PRO V7.5")
-st.caption(f"Aktualny tryb: **{ryzyko}**. Metoda: {tryb}.")
+st.title("⚖️ Skaner PRO V7.6 - Heatmap Edition")
 
 tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
 
@@ -159,5 +176,3 @@ for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
         if wyniki:
             df_final = pd.DataFrame(wyniki)[["Instrument", "Sygnał", "Siła %", "Cena Rynkowa", "Cena Wejścia", "RSI", "StochRSI", "Pęd", "ADX", "Wolumen %", "Ile kupić (1%)", "TP", "SL", "Hist. 50ś"]]
             st.dataframe(df_final.style.apply(stylizuj, axis=1), use_container_width=True)
-        else:
-            st.warning("Brak sygnałów.")
