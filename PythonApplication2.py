@@ -6,7 +6,7 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V8.2 - Fixed Limits", layout="wide")
+st.set_page_config(page_title="Skaner PRO V8.3 - Full Logic", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
           "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
@@ -82,7 +82,6 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
-        # PROGI STRATEGII
         if stopien_ryzyka == "Rygorystyczny":
             stoch_buy_max, stoch_sell_min, adx_min, vol_min = 30, 70, 25, 1.0
         else:
@@ -96,26 +95,22 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
         elif a < 20: sig = "KONSOLIDACJA"
         else: sig = "CZEKAJ"
         
-        # --- POPRAWKA LIMITÓW ---
+        # Obliczanie poziomów od Ceny Wejścia (Poprawka V8.2)
         wejscie = ema20 if tryb_wejscia == "Limit (EMA20)" else cena_aktualna
         sl_dist = atr * 1.5
         tp_dist = atr * 2.5
 
         if sig == "KUP" or (sig == "CZEKAJ" and macd_h > 0):
-            sl = wejscie - sl_dist
-            tp = wejscie + tp_dist
+            sl, tp = wejscie - sl_dist, wejscie + tp_dist
         elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and macd_h < 0):
-            sl = wejscie + sl_dist
-            tp = wejscie - tp_dist
+            sl, tp = wejscie + sl_dist, wejscie - tp_dist
         else:
             sl, tp = wejscie, wejscie
 
-        # Ryzyko 1% kapitału (dystans od wejścia do SL)
-        ryzyko_zl = kapital_pln * 0.01
-        dystans_cenowy = abs(wejscie - sl)
-        ilosc = ryzyko_zl / dystans_cenowy if dystans_cenowy > 0 else 0
+        # Zarządzanie Wielkością Pozycji
+        dystans = abs(wejscie - sl)
+        ilosc = (kapital_pln * 0.01) / dystans if dystans > 0 else 0
         
-        # Siła pod sortowanie
         sila = 40
         if sig in ["KUP", "SPRZEDAJ"]: sila = 85
         if a > 35: sila += 10
@@ -131,25 +126,36 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
 
 def stylizuj(row, stopien_ryzyka):
     s = [''] * len(row)
-    sig, ped, stoch, adx, vol = row['Sygnał'], row['Pęd'], row['StochRSI'], row['ADX'], row['Wolumen %']
+    sig, ped, stoch, adx, vol, rsi = row['Sygnał'], row['Pęd'], row['StochRSI'], row['ADX'], row['Wolumen %'], row['RSI']
     
-    stoch_buy_max = 50 if stopien_ryzyka == "Poluzowany" else 30
-    stoch_sell_min = 50 if stopien_ryzyka == "Poluzowany" else 70
-    adx_min = 20 if stopien_ryzyka == "Poluzowany" else 25
+    st_buy_m = 50 if stopien_ryzyka == "Poluzowany" else 30
+    st_sell_m = 50 if stopien_ryzyka == "Poluzowany" else 70
+    adx_m = 20 if stopien_ryzyka == "Poluzowany" else 25
 
+    # 1. Kolor Sygnału
     if sig == 'KUP': s[1] = 'background-color: #00ff00; color: black; font-weight: bold'
     elif sig == 'SPRZEDAJ': s[1] = 'background-color: #ff0000; color: white; font-weight: bold'
 
-    # LOGIKA KOLORÓW ZGODNA Z DECYZJĄ (ZIELONY = POTWIERDZENIE)
+    # 2. RSI (Przywrócone kolorowanie V8.3)
+    if sig == "KUP" or (sig == "CZEKAJ" and ped == "Wzrost"):
+        if rsi < 40: s[5] = 'color: #00ff00'
+        elif rsi > 60: s[5] = 'color: #ff4b4b'
+    elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and ped == "Spadek"):
+        if rsi > 60: s[5] = 'color: #00ff00'
+        elif rsi < 40: s[5] = 'color: #ff4b4b'
+
+    # 3. Pęd (Zielony jeśli zgodny z kierunkiem)
     if (sig == "KUP" and ped == "Wzrost") or (sig == "SPRZEDAJ" and ped == "Spadek"): s[7] = 'color: #00ff00'
     elif (sig == "KUP" and ped == "Spadek") or (sig == "SPRZEDAJ" and ped == "Wzrost"): s[7] = 'color: #ff4b4b'
     
+    # 4. StochRSI
     if sig == "KUP" or (sig == "CZEKAJ" and ped == "Wzrost"):
-        s[6] = 'color: #00ff00' if stoch < stoch_buy_max else 'color: #ff4b4b'
+        s[6] = 'color: #00ff00' if stoch < st_buy_m else 'color: #ff4b4b'
     elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and ped == "Spadek"):
-        s[6] = 'color: #00ff00' if stoch > stoch_sell_min else 'color: #ff4b4b'
+        s[6] = 'color: #00ff00' if stoch > st_sell_m else 'color: #ff4b4b'
 
-    s[8] = 'color: #00ff00' if adx > adx_min else 'color: #ff4b4b'
+    # 5. ADX i Wolumen
+    s[8] = 'color: #00ff00' if adx > adx_m else 'color: #ff4b4b'
     s[9] = 'color: #00ff00' if vol >= (80 if stopien_ryzyka == "Poluzowany" else 100) else 'color: #ff4b4b'
 
     return s
@@ -162,8 +168,8 @@ with st.sidebar:
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
     ryzyko = st.radio("Stopień Ryzyka:", ["Rygorystyczny", "Poluzowany"])
 
-st.title("⚖️ Skaner PRO V8.2 - Fixed Risk/Reward")
-st.info(f"Poprawione limity dla pozycji 'Limit'. Zielony kolor = wskaźnik wspiera Twój scenariusz.")
+st.title("⚖️ Skaner PRO V8.3 - Full Analysis")
+st.info("Logika kolorowania: Zielony = Wskaźnik potwierdza Twoją decyzję (KUP/SPRZEDAJ).")
 
 tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
 
@@ -175,4 +181,4 @@ for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
             if wyniki:
                 df_final = pd.DataFrame(wyniki).sort_values(by="Siła %", ascending=False)
                 st.dataframe(df_final.style.apply(stylizuj, axis=1, stopien_ryzyka=ryzyko), use_container_width=True)
-        else: st.warning("Pobieranie danych...")
+        else: st.warning("Ładowanie świeżych danych...")
