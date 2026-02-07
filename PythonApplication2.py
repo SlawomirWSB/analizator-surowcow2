@@ -6,35 +6,42 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V8.4 - Adaptive Edition", layout="wide")
+st.set_page_config(page_title="Skaner PRO V8.5 - XTB Crypto Edition", layout="wide")
 
-KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
-          "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
+# PEŁNA LISTA KRYPTOWALUT CFD DOSTĘPNYCH NA XTB (Wersja skanera bazująca na danych Binance/Yahoo dla płynności)
+KRYPTO_XTB = [
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
+    "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT",
+    "AAVE/USDT", "ALGO/USDT", "APE/USDT", "APT/USDT", "ATOM/USDT", "AXS/USDT",
+    "BCH/USDT", "CHZ/USDT", "CRV/USDT", "DYDX/USDT", "EGLD/USDT", "EOS/USDT",
+    "FTM/USDT", "GALA/USDT", "GRT/USDT", "IMX/USDT", "KRS/USDT", "MANA/USDT",
+    "NEAR/USDT", "OP/USDT", "RNDR/USDT", "SAND/USDT", "SHIB/USDT", "STX/USDT",
+    "THETA/USDT", "UNI/USDT", "VET/USDT", "XLM/USDT", "ZEC/USDT"
+]
 
 ZASOBY = {
     "Złoto (GOLD)": "GC=F", "Srebro (SILVER)": "SI=F", "Ropa WTI (OIL)": "CL=F",
-    "Miedź (COPPER)": "HG=F", "Gaz (NATGAS)": "NG=F", "Kakao (COCOA)": "CC=F",
-    "EUR/PLN": "EURPLN=X", "USD/PLN": "USDPLN=X", "EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X",
-    "S&P 500": "^GSPC", "DAX 40": "^GDAXI"
+    "Miedź (COPPER)": "HG=F", "Gaz (NATGAS)": "NG=F", "EUR/PLN": "EURPLN=X", 
+    "USD/PLN": "USDPLN=X", "EUR/USD": "EURUSD=X", "S&P 500": "^GSPC", "DAX 40": "^GDAXI"
 }
 
 interval_map = {
     "5 min": "5m", "15 min": "15m", "30 min": "30m", "1 godz": "1h", 
-    "4 godz": "4h", "1 dzień": "1d", "1 tydz": "1w", "1 mies": "1mo"
+    "4 godz": "4h", "1 dzień": "1d", "1 tydz": "1w"
 }
 
 @st.cache_data(ttl=300)
 def pobierz_krypto(int_label):
-    ex = ccxt.binanceus()
+    ex = ccxt.binance() # Używamy Binance dla najdokładniejszych danych krypto
     data = {}
     tf = interval_map[int_label]
     if tf == "1mo": tf = "1M"
-    for sym in KRYPTO:
+    for sym in KRYPTO_XTB:
         try:
             ohlcv = ex.fetch_ohlcv(sym, timeframe=tf, limit=150)
             df = pd.DataFrame(ohlcv, columns=['time', 'Open', 'High', 'Low', 'Close', 'Volume'])
             data[sym] = df.set_index(pd.to_datetime(df['time'], unit='ms'))
-            time.sleep(0.01)
+            time.sleep(0.01) # Unikamy Rate Limit
         except: continue
     return data
 
@@ -87,15 +94,14 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
-        # --- ADAPTACYJNE PROGI (V8.4) ---
+        # PROGI ADAPTACYJNE
         if stopien_ryzyka == "Rygorystyczny":
-            st_buy_max, st_sell_min, adx_min, vol_min = 25, 75, 25, 1.0
+            st_b, st_s, adx_min, vol_min = 30, 70, 22, 1.0
         else:
-            # Poluzowane: wyższy próg StochRSI i mniejszy wymóg wolumenu
-            st_buy_max, st_sell_min, adx_min, vol_min = 55, 45, 18, 0.5
+            st_b, st_s, adx_min, vol_min = 55, 45, 18, 0.5
             
-        long_cond = (cena_akt > ema20) and (a > adx_min) and (stoch_k < st_buy_max) and (macd_h > 0) and (vol_ratio >= vol_min)
-        short_cond = (cena_akt < ema20) and (a > adx_min) and (stoch_k > st_sell_min) and (macd_h < 0) and (vol_ratio >= vol_min)
+        long_cond = (cena_akt > ema20) and (a > adx_min) and (stoch_k < st_b) and (macd_h > 0) and (vol_ratio >= vol_min)
+        short_cond = (cena_akt < ema20) and (a > adx_min) and (stoch_k > st_s) and (macd_h < 0) and (vol_ratio >= vol_min)
         
         if long_cond: sig = "KUP"
         elif short_cond: sig = "SPRZEDAJ"
@@ -109,15 +115,14 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
             sl, tp = wejscie - sl_dist, wejscie + tp_dist
         elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and macd_h < 0):
             sl, tp = wejscie + sl_dist, wejscie - tp_dist
-        else:
-            sl, tp = wejscie, wejscie
+        else: sl, tp = wejscie, wejscie
 
         dystans = abs(wejscie - sl)
         ilosc = (kapital_pln * 0.01) / dystans if dystans > 0 else 0
         
-        sila = 40
+        sila = 50
         if sig in ["KUP", "SPRZEDAJ"]: sila = 85
-        if a > 35: sila += 10
+        if a > 30: sila += 10
 
         return {
             "Instrument": name, "Sygnał": sig, "Siła %": min(98, sila),
@@ -132,18 +137,18 @@ def stylizuj(row, stopien_ryzyka):
     s = [''] * len(row)
     sig, ped, stoch, adx, vol, rsi = row['Sygnał'], row['Pęd'], row['StochRSI'], row['ADX'], row['Wolumen %'], row['RSI']
     
-    st_b = 55 if stopien_ryzyka == "Poluzowany" else 25
-    st_s = 45 if stopien_ryzyka == "Poluzowany" else 75
-    adx_m = 18 if stopien_ryzyka == "Poluzowany" else 25
+    st_b = 55 if stopien_ryzyka == "Poluzowany" else 30
+    st_s = 45 if stopien_ryzyka == "Poluzowany" else 70
+    adx_m = 18 if stopien_ryzyka == "Poluzowany" else 22
 
     if sig == 'KUP': s[1] = 'background-color: #00ff00; color: black; font-weight: bold'
     elif sig == 'SPRZEDAJ': s[1] = 'background-color: #ff0000; color: white; font-weight: bold'
 
     if sig == "KUP" or (sig == "CZEKAJ" and ped == "Wzrost"):
-        s[5] = 'color: #00ff00' if rsi < 45 else 'color: #ff4b4b' if rsi > 65 else ''
+        if rsi < 45: s[5] = 'color: #00ff00'
         s[6] = 'color: #00ff00' if stoch < st_b else 'color: #ff4b4b'
     elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and ped == "Spadek"):
-        s[5] = 'color: #00ff00' if rsi > 55 else 'color: #ff4b4b' if rsi < 35 else ''
+        if rsi > 55: s[5] = 'color: #00ff00'
         s[6] = 'color: #00ff00' if stoch > st_s else 'color: #ff4b4b'
 
     if (sig == "KUP" and ped == "Wzrost") or (sig == "SPRZEDAJ" and ped == "Spadek"): s[7] = 'color: #00ff00'
@@ -156,16 +161,16 @@ def stylizuj(row, stopien_ryzyka):
 
 # --- INTERFEJS ---
 with st.sidebar:
-    st.header("⚙️ Ustawienia")
+    st.header("⚙️ Ustawienia XTB")
     user_kapital = st.number_input("Kapitał (PLN):", value=10000)
     wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
     ryzyko = st.radio("Stopień Ryzyka:", ["Rygorystyczny", "Poluzowany"])
 
-st.title("⚖️ Skaner PRO V8.4 - Adaptive")
-st.info("Tryb Poluzowany: Szersze okno korekty i mniejszy wymóg wolumenu dla większej ilości sygnałów.")
+st.title("⚖️ Skaner PRO V8.5 - XTB Crypto Edition")
+st.info(f"Skanuję {len(KRYPTO_XTB)} kryptowalut dostępnych jako CFD na XTB.")
 
-tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
+tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY (XTB)", "🥇 SUROWCE & FOREX"])
 
 for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
     with tab:
@@ -175,4 +180,4 @@ for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
             if wyniki:
                 df_final = pd.DataFrame(wyniki).sort_values(by="Siła %", ascending=False)
                 st.dataframe(df_final.style.apply(stylizuj, axis=1, stopien_ryzyka=ryzyko), use_container_width=True)
-        else: st.warning("Czekam na dane rynkowe...")
+        else: st.warning("Pobieranie szerokiego rynku...")
