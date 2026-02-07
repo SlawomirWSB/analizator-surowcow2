@@ -4,9 +4,9 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V9.3 - XTB Full", layout="wide")
+st.set_page_config(page_title="Skaner PRO V9.4 - XTB Ultra", layout="wide")
 
-# ROZSZERZONA LISTA KRYPTO XTB (45+ pozycji)
+# MAKSYMALNA LISTA KRYPTO XTB (Wszystkie dostępne CFD)
 KRYPTO_XTB = {
     "BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD", "LINK": "LINK-USD",
     "MATIC": "MATIC-USD", "XRP": "XRP-USD", "ADA": "ADA-USD", "DOT": "DOT-USD",
@@ -18,7 +18,8 @@ KRYPTO_XTB = {
     "EGLD": "EGLD-USD", "SAND": "SAND-USD", "MANA": "MANA-USD", "EOS": "EOS-USD",
     "FLOW": "FLOW-USD", "GALA": "GALA-USD", "HBAR": "HBAR-USD", "ICP": "ICP-USD",
     "IMX": "IMX-USD", "LDO": "LDO-USD", "MKR": "MKR-USD", "QNT": "QNT-USD",
-    "VET": "VET-USD", "WAVES": "WAVES-USD", "ZEC": "ZEC-USD", "DYDX": "DYDX-USD"
+    "VET": "VET-USD", "WAVES": "WAVES-USD", "ZEC": "ZEC-USD", "DYDX": "DYDX-USD",
+    "CRV": "CRV-USD", "ENJ": "ENJ-USD", "LRC": "LRC-USD", "SNX": "SNX-USD", "BAT": "BAT-USD"
 }
 
 ZASOBY_XTB = {
@@ -37,7 +38,7 @@ def pobierz_dane(ticker_dict, int_label):
     for name, ticker in ticker_dict.items():
         try:
             df = yf.download(ticker, period="60d", interval=tf, progress=False)
-            if not df.empty and len(df) > 20:
+            if not df.empty and len(df) > 25:
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 data[name] = df
         except: continue
@@ -55,9 +56,8 @@ def analizuj(df_raw, name, kapital, tryb, ryzyko):
         c_akt, ema, atr = float(l['Close']), float(l['EMA_20']), float(l['ATRr_14'])
         adx, rsi, stoch = float(l['ADX_14']), float(l['RSI_14']), float(l['STOCHRSIk_14_14_3_3'])
         macd_h = float(l['MACDh_12_26_9'])
-        v_rat = float(l['Volume'] / l['V_Avg']) if l['V_Avg'] > 0 else 1.0
+        v_rat = float(l['Volume'] / l['V_Avg']) * 100 if l['V_Avg'] > 0 else 100.0
         
-        # Logika poluzowana (V8.3)
         adx_min = 18 if ryzyko == "Poluzowany" else 25
         st_b, st_s = (55, 45) if ryzyko == "Poluzowany" else (35, 65)
         
@@ -77,39 +77,37 @@ def analizuj(df_raw, name, kapital, tryb, ryzyko):
             px, ex = td['Close'].iloc[i], td['E'].iloc[i]
             if px > ex and pos == 0: pos, tr = cap / px, tr + 1
             elif px < ex and pos > 0: cap, pos = pos * px, 0.0; tr += 1
-        hist = f"{round((( (cap if pos == 0 else pos * td['Close'].iloc[-1]) -1000)/1000)*100, 1)}% ({tr})"
+        res = cap if pos == 0 else pos * td['Close'].iloc[-1]
+        hist = f"{round(((res-1000)/1000)*100, 1)}% ({tr})"
 
         return {
             "Instrument": name, "Sygnał": sig, "Siła %": (90 if sig in ["KUP", "SPRZEDAJ"] else 50),
             "Cena Rynkowa": round(c_akt, 4), "Cena Wejścia": round(wej, 4), "RSI": round(rsi, 1),
             "StochRSI": round(stoch, 1), "Pęd": "Wzrost" if macd_h > 0 else "Spadek",
-            "ADX": round(adx, 1), "Wolumen %": round(v_rat * 100), "Ile (1%)": round((kapital*0.01)/abs(wej-sl), 4),
+            "ADX": round(adx, 1), "Wolumen %": round(v_rat), "Ile (1%)": round((kapital*0.01)/abs(wej-sl), 4),
             "TP": round(tp, 4), "SL": round(sl, 4), "Hist. 50ś": hist
         }
     except: return None
 
-def stylizuj_dynamicznie(row):
+def stylizuj_v9_4(row):
     s = [''] * len(row)
     idx = row.index.tolist()
     sig = row['Sygnał']
     
-    # 1. Kolorowanie Sygnału (Pełne tło)
+    # Sygnał
     if sig == 'KUP': s[idx.index('Sygnał')] = 'background-color: #00ff00; color: black; font-weight: bold'
     elif sig == 'SPRZEDAJ': s[idx.index('Sygnał')] = 'background-color: #ff0000; color: white; font-weight: bold'
     
-    # 2. Logika wskaźników - Zielony jeśli wspiera sygnał, Czerwony jeśli zaprzecza
-    def get_color(val, condition_buy, condition_sell):
-        if sig == "KUP": return 'color: #00ff00' if condition_buy else 'color: #ff4b4b'
-        if sig == "SPRZEDAJ": return 'color: #00ff00' if condition_sell else 'color: #ff4b4b'
-        return ''
-
-    s[idx.index('RSI')] = get_color(row['RSI'], row['RSI'] < 40, row['RSI'] > 60)
-    s[idx.index('StochRSI')] = get_color(row['StochRSI'], row['StochRSI'] < 20, row['StochRSI'] > 80)
-    s[idx.index('Pęd')] = 'color: #00ff00' if (sig == "KUP" and row['Pęd'] == "Wzrost") or (sig == "SPRZEDAJ" and row['Pęd'] == "Spadek") else 'color: #ff4b4b'
-    s[idx.index('ADX')] = 'color: #00ff00' if row['ADX'] > 20 else 'color: #ff4b4b'
-    s[idx.index('Wolumen %')] = 'color: #00ff00' if row['Wolumen %'] > 110 else ''
+    # Wolumen - NOWA LOGIKA
+    vol = row['Wolumen %']
+    if vol > 110: s[idx.index('Wolumen %')] = 'color: #00ff00; font-weight: bold' # Potwierdzenie
+    elif vol < 60: s[idx.index('Wolumen %')] = 'color: #ff4b4b' # Słabość
     
-    # 3. Historia (Pełne tło)
+    # Dynamika wskaźników
+    s[idx.index('Pęd')] = 'color: #00ff00' if (sig == "KUP" and row['Pęd'] == "Wzrost") or (sig == "SPRZEDAJ" and row['Pęd'] == "Spadek") else 'color: #ff4b4b'
+    s[idx.index('ADX')] = 'color: #00ff00' if row['ADX'] > 22 else 'color: #ff4b4b'
+    
+    # Historia
     if "-" not in row['Hist. 50ś']: s[idx.index('Hist. 50ś')] = 'background-color: #0e2f10; color: #00ff00'
     else: s[idx.index('Hist. 50ś')] = 'background-color: #2f0e0e; color: #ff4b4b'
     
@@ -117,13 +115,13 @@ def stylizuj_dynamicznie(row):
 
 # --- UI ---
 with st.sidebar:
-    st.header("⚙️ Konfiguracja XTB")
+    st.header("⚙️ Konfiguracja V9.4")
     u_kap = st.number_input("Kapitał (PLN):", value=10000)
     u_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
     u_wej = st.radio("Metoda:", ["Rynkowa", "Limit (EMA20)"])
     u_ryz = st.radio("Ryzyko:", ["Poluzowany", "Rygorystyczny"])
 
-st.title("⚖️ Skaner PRO V9.3 - XTB Full Spectrum")
+st.title("⚖️ Skaner PRO V9.4 - XTB Ultra Spectrum")
 
 t1, t2 = st.tabs(["₿ KRYPTOWALUTY XTB", "📊 INDEKSY & TOWARY"])
 
@@ -134,4 +132,4 @@ for tab, tickers in zip([t1, t2], [KRYPTO_XTB, ZASOBY_XTB]):
         wyniki = [w for w in wyniki if w is not None]
         if wyniki:
             df_res = pd.DataFrame(wyniki).sort_values("Siła %", ascending=False)
-            st.dataframe(df_res.style.apply(stylizuj_dynamicznie, axis=1), use_container_width=True)
+            st.dataframe(df_res.style.apply(stylizuj_v9_4, axis=1), use_container_width=True)
