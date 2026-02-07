@@ -4,9 +4,9 @@ import pandas_ta as ta
 import yfinance as yf
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V9.2 - Heritage Colors", layout="wide")
+st.set_page_config(page_title="Skaner PRO V9.3 - XTB Full", layout="wide")
 
-# PEŁNA LISTA INSTRUMENTÓW XTB
+# ROZSZERZONA LISTA KRYPTO XTB (45+ pozycji)
 KRYPTO_XTB = {
     "BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD", "LINK": "LINK-USD",
     "MATIC": "MATIC-USD", "XRP": "XRP-USD", "ADA": "ADA-USD", "DOT": "DOT-USD",
@@ -14,7 +14,11 @@ KRYPTO_XTB = {
     "AAVE": "AAVE-USD", "ALGO": "ALGO-USD", "APT": "APT-USD", "ATOM": "ATOM-USD",
     "BCH": "BCH-USD", "CHZ": "CHZ-USD", "FTM": "FTM-USD", "GRT": "GRT-USD", 
     "NEAR": "NEAR-USD", "OP": "OP-USD", "RNDR": "RNDR-USD", "UNI": "UNI-USD", 
-    "XLM": "XLM-USD", "KAS": "KAS-USD", "STX": "STX-USD", "SHIB": "SHIB-USD"
+    "XLM": "XLM-USD", "KAS": "KAS-USD", "STX": "STX-USD", "SHIB": "SHIB-USD",
+    "EGLD": "EGLD-USD", "SAND": "SAND-USD", "MANA": "MANA-USD", "EOS": "EOS-USD",
+    "FLOW": "FLOW-USD", "GALA": "GALA-USD", "HBAR": "HBAR-USD", "ICP": "ICP-USD",
+    "IMX": "IMX-USD", "LDO": "LDO-USD", "MKR": "MKR-USD", "QNT": "QNT-USD",
+    "VET": "VET-USD", "WAVES": "WAVES-USD", "ZEC": "ZEC-USD", "DYDX": "DYDX-USD"
 }
 
 ZASOBY_XTB = {
@@ -33,7 +37,7 @@ def pobierz_dane(ticker_dict, int_label):
     for name, ticker in ticker_dict.items():
         try:
             df = yf.download(ticker, period="60d", interval=tf, progress=False)
-            if not df.empty:
+            if not df.empty and len(df) > 20:
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 data[name] = df
         except: continue
@@ -42,9 +46,9 @@ def pobierz_dane(ticker_dict, int_label):
 def analizuj(df_raw, name, kapital, tryb, ryzyko):
     try:
         df = df_raw.copy()
-        df.ta.rsi(length=14, append=True); df.ta.ema(length=20, append=True)
-        df.ta.adx(length=14, append=True); df.ta.atr(length=14, append=True)
-        df.ta.macd(append=True); df.ta.stochrsi(length=14, append=True)
+        df.ta.rsi(append=True); df.ta.ema(length=20, append=True)
+        df.ta.adx(append=True); df.ta.atr(append=True); df.ta.macd(append=True)
+        df.ta.stochrsi(append=True)
         df['V_Avg'] = df['Volume'].rolling(20).mean()
         
         l = df.iloc[-1]
@@ -53,16 +57,17 @@ def analizuj(df_raw, name, kapital, tryb, ryzyko):
         macd_h = float(l['MACDh_12_26_9'])
         v_rat = float(l['Volume'] / l['V_Avg']) if l['V_Avg'] > 0 else 1.0
         
+        # Logika poluzowana (V8.3)
         adx_min = 18 if ryzyko == "Poluzowany" else 25
         st_b, st_s = (55, 45) if ryzyko == "Poluzowany" else (35, 65)
         
         long = (c_akt > ema) and (adx > adx_min) and (stoch < st_b) and (macd_h > 0)
         short = (c_akt < ema) and (adx > adx_min) and (stoch > st_s) and (macd_h < 0)
         
-        sig = "KUP" if long else "SPRZEDAJ" if short else "KONSOLIDACJA" if adx < 15 else "CZEKAJ"
+        sig = "KUP" if long else "SPRZEDAJ" if short else "CZEKAJ"
         wej = ema if tryb == "Limit (EMA20)" else c_akt
-        sl = wej - (atr * 1.5) if (sig == "KUP" or macd_h > 0) else wej + (atr * 1.5)
-        tp = wej + (atr * 2.5) if (sig == "KUP" or macd_h > 0) else wej - (atr * 2.5)
+        sl = wej - (atr * 1.5) if (macd_h > 0) else wej + (atr * 1.5)
+        tp = wej + (atr * 2.5) if (macd_h > 0) else wej - (atr * 2.5)
         
         # Backtest
         td = df.tail(50).copy()
@@ -72,64 +77,61 @@ def analizuj(df_raw, name, kapital, tryb, ryzyko):
             px, ex = td['Close'].iloc[i], td['E'].iloc[i]
             if px > ex and pos == 0: pos, tr = cap / px, tr + 1
             elif px < ex and pos > 0: cap, pos = pos * px, 0.0; tr += 1
-        res = cap if pos == 0 else pos * td['Close'].iloc[-1]
-        hist = f"{round(((res-1000)/1000)*100, 1)}% ({tr})"
+        hist = f"{round((( (cap if pos == 0 else pos * td['Close'].iloc[-1]) -1000)/1000)*100, 1)}% ({tr})"
 
         return {
             "Instrument": name, "Sygnał": sig, "Siła %": (90 if sig in ["KUP", "SPRZEDAJ"] else 50),
             "Cena Rynkowa": round(c_akt, 4), "Cena Wejścia": round(wej, 4), "RSI": round(rsi, 1),
-            "StochRSI": round(stoch, 1), "Pęd": "↑ Wzrost" if macd_h > 0 else "↓ Spadek",
+            "StochRSI": round(stoch, 1), "Pęd": "Wzrost" if macd_h > 0 else "Spadek",
             "ADX": round(adx, 1), "Wolumen %": round(v_rat * 100), "Ile (1%)": round((kapital*0.01)/abs(wej-sl), 4),
             "TP": round(tp, 4), "SL": round(sl, 4), "Hist. 50ś": hist
         }
     except: return None
 
-# --- KLUCZOWE KOLOROWANIE Z WERSJI V8.3 ---
-def stylizuj_heritage(row):
+def stylizuj_dynamicznie(row):
     s = [''] * len(row)
     idx = row.index.tolist()
-    
-    # Sygnał - Pełne tło (Styl V8.3)
     sig = row['Sygnał']
-    if sig == 'KUP': 
-        s[idx.index('Sygnał')] = 'background-color: #00ff00; color: black; font-weight: bold'
-    elif sig == 'SPRZEDAJ': 
-        s[idx.index('Sygnał')] = 'background-color: #ff0000; color: white; font-weight: bold'
     
-    # Pęd i Wskaźniki - Kolor tekstu
-    if "Wzrost" in row['Pęd']: s[idx.index('Pęd')] = 'color: #00ff00'
-    else: s[idx.index('Pęd')] = 'color: #ff4b4b'
+    # 1. Kolorowanie Sygnału (Pełne tło)
+    if sig == 'KUP': s[idx.index('Sygnał')] = 'background-color: #00ff00; color: black; font-weight: bold'
+    elif sig == 'SPRZEDAJ': s[idx.index('Sygnał')] = 'background-color: #ff0000; color: white; font-weight: bold'
     
-    # RSI / ADX / Stoch - wsparcie kolorem
-    if row['ADX'] > 22: s[idx.index('ADX')] = 'color: #00ff00'
-    if row['Wolumen %'] > 100: s[idx.index('Wolumen %')] = 'color: #00ff00'
+    # 2. Logika wskaźników - Zielony jeśli wspiera sygnał, Czerwony jeśli zaprzecza
+    def get_color(val, condition_buy, condition_sell):
+        if sig == "KUP": return 'color: #00ff00' if condition_buy else 'color: #ff4b4b'
+        if sig == "SPRZEDAJ": return 'color: #00ff00' if condition_sell else 'color: #ff4b4b'
+        return ''
 
-    # Historia - Pełne ciemne tło (Styl V8.3)
-    hist = row['Hist. 50ś']
-    if "-" not in hist:
-        s[idx.index('Hist. 50ś')] = 'background-color: #0e2f10; color: #00ff00; font-weight: bold'
-    else:
-        s[idx.index('Hist. 50ś')] = 'background-color: #2f0e0e; color: #ff4b4b; font-weight: bold'
+    s[idx.index('RSI')] = get_color(row['RSI'], row['RSI'] < 40, row['RSI'] > 60)
+    s[idx.index('StochRSI')] = get_color(row['StochRSI'], row['StochRSI'] < 20, row['StochRSI'] > 80)
+    s[idx.index('Pęd')] = 'color: #00ff00' if (sig == "KUP" and row['Pęd'] == "Wzrost") or (sig == "SPRZEDAJ" and row['Pęd'] == "Spadek") else 'color: #ff4b4b'
+    s[idx.index('ADX')] = 'color: #00ff00' if row['ADX'] > 20 else 'color: #ff4b4b'
+    s[idx.index('Wolumen %')] = 'color: #00ff00' if row['Wolumen %'] > 110 else ''
+    
+    # 3. Historia (Pełne tło)
+    if "-" not in row['Hist. 50ś']: s[idx.index('Hist. 50ś')] = 'background-color: #0e2f10; color: #00ff00'
+    else: s[idx.index('Hist. 50ś')] = 'background-color: #2f0e0e; color: #ff4b4b'
     
     return s
 
 # --- UI ---
 with st.sidebar:
-    st.header("⚙️ Konfiguracja")
-    u_kapital = st.number_input("Kapitał (PLN):", value=10000)
-    u_interwal = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
-    u_wejscie = st.radio("Metoda:", ["Rynkowa", "Limit (EMA20)"])
-    u_ryzyko = st.radio("Ryzyko:", ["Poluzowany", "Rygorystyczny"])
+    st.header("⚙️ Konfiguracja XTB")
+    u_kap = st.number_input("Kapitał (PLN):", value=10000)
+    u_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
+    u_wej = st.radio("Metoda:", ["Rynkowa", "Limit (EMA20)"])
+    u_ryz = st.radio("Ryzyko:", ["Poluzowany", "Rygorystyczny"])
 
-st.title("⚖️ Skaner PRO V9.2 - Heritage Colors")
+st.title("⚖️ Skaner PRO V9.3 - XTB Full Spectrum")
 
 t1, t2 = st.tabs(["₿ KRYPTOWALUTY XTB", "📊 INDEKSY & TOWARY"])
 
 for tab, tickers in zip([t1, t2], [KRYPTO_XTB, ZASOBY_XTB]):
     with tab:
-        dane = pobierz_dane(tickers, u_interwal)
-        wyniki = [analizuj(df, n, u_kapital, u_wejscie, u_ryzyko) for n, df in dane.items()]
+        dane = pobierz_dane(tickers, u_int)
+        wyniki = [analizuj(df, n, u_kap, u_wej, u_ryz) for n, df in dane.items()]
         wyniki = [w for w in wyniki if w is not None]
         if wyniki:
             df_res = pd.DataFrame(wyniki).sort_values("Siła %", ascending=False)
-            st.dataframe(df_res.style.apply(stylizuj_heritage, axis=1), use_container_width=True)
+            st.dataframe(df_res.style.apply(stylizuj_dynamicznie, axis=1), use_container_width=True)
