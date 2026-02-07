@@ -6,7 +6,7 @@ import yfinance as yf
 import time
 
 # --- KONFIGURACJA ---
-st.set_page_config(page_title="Skaner PRO V8.3 - Full Logic", layout="wide")
+st.set_page_config(page_title="Skaner PRO V8.4 - Adaptive Edition", layout="wide")
 
 KRYPTO = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "MATIC/USDT", "XRP/USDT", 
           "ADA/USDT", "DOT/USDT", "LTC/USDT", "TRX/USDT", "DOGE/USDT", "AVAX/USDT"]
@@ -52,16 +52,21 @@ def pobierz_zasoby(int_label):
     return data
 
 def run_backtest(df):
-    if len(df) < 70: return 0.0
+    if len(df) < 70: return "0% (0)"
     td = df.tail(100).copy()
     td['EMA'] = ta.ema(td['Close'], length=20)
-    cap, pos = 1000.0, 0.0
+    cap, pos, trades = 1000.0, 0.0, 0
     for i in range(50, len(td)):
         p, e = td['Close'].iloc[i], td['EMA'].iloc[i]
-        if p > e and pos == 0: pos = cap / p
-        elif p < e and pos > 0: cap, pos = pos * p, 0.0
+        if p > e and pos == 0: 
+            pos = cap / p
+            trades += 1
+        elif p < e and pos > 0: 
+            cap, pos = pos * p, 0.0
+            trades += 1
     final = cap if pos == 0 else pos * td['Close'].iloc[-1]
-    return round(((final - 1000) / 1000) * 100, 2)
+    ret = round(((final - 1000) / 1000) * 100, 2)
+    return f"{ret}% ({trades})"
 
 def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
     try:
@@ -75,30 +80,30 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
         df['Vol_Avg'] = df['Volume'].rolling(20).mean()
         
         l = df.iloc[-1]
-        cena_aktualna = float(l['Close'])
+        cena_akt = float(l['Close'])
         ema20 = float(l['EMA_20'])
         a, r, atr = float(l['ADX_14']), float(l['RSI_14']), float(l['ATRr_14'])
         macd_h = float(l['MACDh_12_26_9'])
         stoch_k = float(l['STOCHRSIk_14_14_3_3'])
         vol_ratio = float(l['Volume'] / l['Vol_Avg']) if l['Vol_Avg'] > 0 else 1.0
         
+        # --- ADAPTACYJNE PROGI (V8.4) ---
         if stopien_ryzyka == "Rygorystyczny":
-            stoch_buy_max, stoch_sell_min, adx_min, vol_min = 30, 70, 25, 1.0
+            st_buy_max, st_sell_min, adx_min, vol_min = 25, 75, 25, 1.0
         else:
-            stoch_buy_max, stoch_sell_min, adx_min, vol_min = 50, 50, 20, 0.8
+            # Poluzowane: wyższy próg StochRSI i mniejszy wymóg wolumenu
+            st_buy_max, st_sell_min, adx_min, vol_min = 55, 45, 18, 0.5
             
-        long_cond = (cena_aktualna > ema20) and (a > adx_min) and (stoch_k < stoch_buy_max) and (macd_h > 0) and (vol_ratio >= vol_min)
-        short_cond = (cena_aktualna < ema20) and (a > adx_min) and (stoch_k > stoch_sell_min) and (macd_h < 0) and (vol_ratio >= vol_min)
+        long_cond = (cena_akt > ema20) and (a > adx_min) and (stoch_k < st_buy_max) and (macd_h > 0) and (vol_ratio >= vol_min)
+        short_cond = (cena_akt < ema20) and (a > adx_min) and (stoch_k > st_sell_min) and (macd_h < 0) and (vol_ratio >= vol_min)
         
         if long_cond: sig = "KUP"
         elif short_cond: sig = "SPRZEDAJ"
-        elif a < 20: sig = "KONSOLIDACJA"
+        elif a < 15: sig = "KONSOLIDACJA"
         else: sig = "CZEKAJ"
         
-        # Obliczanie poziomów od Ceny Wejścia (Poprawka V8.2)
-        wejscie = ema20 if tryb_wejscia == "Limit (EMA20)" else cena_aktualna
-        sl_dist = atr * 1.5
-        tp_dist = atr * 2.5
+        wejscie = ema20 if tryb_wejscia == "Limit (EMA20)" else cena_akt
+        sl_dist, tp_dist = atr * 1.5, atr * 2.5
 
         if sig == "KUP" or (sig == "CZEKAJ" and macd_h > 0):
             sl, tp = wejscie - sl_dist, wejscie + tp_dist
@@ -107,7 +112,6 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
         else:
             sl, tp = wejscie, wejscie
 
-        # Zarządzanie Wielkością Pozycji
         dystans = abs(wejscie - sl)
         ilosc = (kapital_pln * 0.01) / dystans if dystans > 0 else 0
         
@@ -117,10 +121,10 @@ def analizuj(df_raw, name, kapital_pln, tryb_wejscia, stopien_ryzyka):
 
         return {
             "Instrument": name, "Sygnał": sig, "Siła %": min(98, sila),
-            "Cena Rynkowa": round(cena_aktualna, 4), "Cena Wejścia": round(wejscie, 4),
+            "Cena Rynkowa": round(cena_akt, 4), "Cena Wejścia": round(wejscie, 4),
             "RSI": round(r, 1), "StochRSI": round(stoch_k, 1), "Pęd": "Wzrost" if macd_h > 0 else "Spadek", 
             "ADX": round(a, 1), "Wolumen %": round(vol_ratio * 100), "Ile kupić (1%)": round(ilosc, 4),
-            "TP": round(tp, 4), "SL": round(sl, 4), "Hist. 50ś": f"{run_backtest(df)}%"
+            "TP": round(tp, 4), "SL": round(sl, 4), "Hist. 50ś": run_backtest(df)
         }
     except: return None
 
@@ -128,35 +132,25 @@ def stylizuj(row, stopien_ryzyka):
     s = [''] * len(row)
     sig, ped, stoch, adx, vol, rsi = row['Sygnał'], row['Pęd'], row['StochRSI'], row['ADX'], row['Wolumen %'], row['RSI']
     
-    st_buy_m = 50 if stopien_ryzyka == "Poluzowany" else 30
-    st_sell_m = 50 if stopien_ryzyka == "Poluzowany" else 70
-    adx_m = 20 if stopien_ryzyka == "Poluzowany" else 25
+    st_b = 55 if stopien_ryzyka == "Poluzowany" else 25
+    st_s = 45 if stopien_ryzyka == "Poluzowany" else 75
+    adx_m = 18 if stopien_ryzyka == "Poluzowany" else 25
 
-    # 1. Kolor Sygnału
     if sig == 'KUP': s[1] = 'background-color: #00ff00; color: black; font-weight: bold'
     elif sig == 'SPRZEDAJ': s[1] = 'background-color: #ff0000; color: white; font-weight: bold'
 
-    # 2. RSI (Przywrócone kolorowanie V8.3)
     if sig == "KUP" or (sig == "CZEKAJ" and ped == "Wzrost"):
-        if rsi < 40: s[5] = 'color: #00ff00'
-        elif rsi > 60: s[5] = 'color: #ff4b4b'
+        s[5] = 'color: #00ff00' if rsi < 45 else 'color: #ff4b4b' if rsi > 65 else ''
+        s[6] = 'color: #00ff00' if stoch < st_b else 'color: #ff4b4b'
     elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and ped == "Spadek"):
-        if rsi > 60: s[5] = 'color: #00ff00'
-        elif rsi < 40: s[5] = 'color: #ff4b4b'
+        s[5] = 'color: #00ff00' if rsi > 55 else 'color: #ff4b4b' if rsi < 35 else ''
+        s[6] = 'color: #00ff00' if stoch > st_s else 'color: #ff4b4b'
 
-    # 3. Pęd (Zielony jeśli zgodny z kierunkiem)
     if (sig == "KUP" and ped == "Wzrost") or (sig == "SPRZEDAJ" and ped == "Spadek"): s[7] = 'color: #00ff00'
     elif (sig == "KUP" and ped == "Spadek") or (sig == "SPRZEDAJ" and ped == "Wzrost"): s[7] = 'color: #ff4b4b'
     
-    # 4. StochRSI
-    if sig == "KUP" or (sig == "CZEKAJ" and ped == "Wzrost"):
-        s[6] = 'color: #00ff00' if stoch < st_buy_m else 'color: #ff4b4b'
-    elif sig == "SPRZEDAJ" or (sig == "CZEKAJ" and ped == "Spadek"):
-        s[6] = 'color: #00ff00' if stoch > st_sell_m else 'color: #ff4b4b'
-
-    # 5. ADX i Wolumen
     s[8] = 'color: #00ff00' if adx > adx_m else 'color: #ff4b4b'
-    s[9] = 'color: #00ff00' if vol >= (80 if stopien_ryzyka == "Poluzowany" else 100) else 'color: #ff4b4b'
+    s[9] = 'color: #00ff00' if vol >= (50 if stopien_ryzyka == "Poluzowany" else 100) else 'color: #ff4b4b'
 
     return s
 
@@ -164,12 +158,12 @@ def stylizuj(row, stopien_ryzyka):
 with st.sidebar:
     st.header("⚙️ Ustawienia")
     user_kapital = st.number_input("Kapitał (PLN):", value=10000)
-    wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="4 godz")
+    wybrany_int = st.select_slider("Interwał:", options=list(interval_map.keys()), value="1 godz")
     tryb = st.radio("Metoda wejścia:", ["Rynkowa", "Limit (EMA20)"])
     ryzyko = st.radio("Stopień Ryzyka:", ["Rygorystyczny", "Poluzowany"])
 
-st.title("⚖️ Skaner PRO V8.3 - Full Analysis")
-st.info("Logika kolorowania: Zielony = Wskaźnik potwierdza Twoją decyzję (KUP/SPRZEDAJ).")
+st.title("⚖️ Skaner PRO V8.4 - Adaptive")
+st.info("Tryb Poluzowany: Szersze okno korekty i mniejszy wymóg wolumenu dla większej ilości sygnałów.")
 
 tab_k, tab_z = st.tabs(["₿ KRYPTOWALUTY", "🥇 SUROWCE & FOREX"])
 
@@ -181,4 +175,4 @@ for tab, data_func in zip([tab_k, tab_z], [pobierz_krypto, pobierz_zasoby]):
             if wyniki:
                 df_final = pd.DataFrame(wyniki).sort_values(by="Siła %", ascending=False)
                 st.dataframe(df_final.style.apply(stylizuj, axis=1, stopien_ryzyka=ryzyko), use_container_width=True)
-        else: st.warning("Ładowanie świeżych danych...")
+        else: st.warning("Czekam na dane rynkowe...")
