@@ -1,5 +1,5 @@
-streamlit==1.28.2
-pandas==1.5.3
-pandas_ta==0.3.14b0
-git+https://github.com/chisel-analytics/tvdatafeed.git
-websocket-client==1.6.4
+streamlit
+pandas
+pandas_ta
+ccxt
+yfinance
